@@ -1,0 +1,3 @@
+[submodule "libs/tabulator"]
+	path = libs/tabulator
+	url = https://github.com/olifolkerd/tabulator.git
