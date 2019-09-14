@@ -72,7 +72,7 @@ orig_out = out  # copy of original so out() can be locally redefined inside func
 def notice(text, line):
     header = "NOTICE: "
     indent = "        "
-    
+
     outfile.write(header + re.sub(r"\n", "\n" + indent, text) + "\n")
     AllNotices.append( { "line": line, "text": text } )
 
@@ -105,7 +105,7 @@ def addfeature(key, desc = None):
 
 dhdescs = { 1: "768-bit MODP", 2: "1024-bit MODP", 5: "1536-bit MODP", 14: "2048-bit MODP",
            15: "3072-bit MODP", 16: "4096-bit MODP", 17: "6144-bit MODP", 18: "8192-bit MODP",
-           
+
            22: "1024-bit MODP with 160-bit Prime Order Subgroup",
            23: "2048-bit MODP with 224-bit Prime Order Subgroup",
            24: "2048-bit MODP with 256-bit Prime Order Subgroup",
@@ -133,9 +133,9 @@ def dhdesc(group, line):
     elif igroup>=16 and igroup<=18:
         notice("Diffie-Hellman group " + group + " is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
     return dhdescs[igroup]
-    
 
-    
+
+
 
 
 #
@@ -149,15 +149,15 @@ while True:
     if not line:
         break
 
-    indent = re_group(r'^(\s*)', line, 1, "")   # grab indent 
-    
+    indent = re_group(r'^(\s*)', line, 1, "")   # grab indent
+
     line = re.sub(r'\s+$', "", line)
 
     # CRLF in comments
     line = re.sub(r' Comments="[^"]*&#10;[^"]*"', lambda m: re.sub(r'&#1[03];', "  ", m.group(0)), line)
 
     lines.append(line)  # store line for next pass
-    
+
     # Skip disabled lines
     if re.search(r'disabled="1".*/>', line):
         continue
@@ -170,8 +170,8 @@ while True:
   # Scrape all <....Settings> so we can repeat them at the end
     m = re.search(r"""(<([a-zA-Z0-9_.]+Settings|UpdateCenter))[ >]""", line)
     if m:
-        AllSettings.append(line)        
-        
+        AllSettings.append(line)
+
     # Scrape IPRuleSet
     m = re.search(r"""(<IPRuleSet .*Names="([^"]+)".*>)""", line)
     if m:
@@ -184,13 +184,13 @@ while True:
             line = f.readline()
             line = re.sub(r'\s+$', "", line)
             assert line, "ERROR: missing </IPRuleSet>, hit end-of-file looking for it!"
-                
+
         lines.append(line)
         rslines.append(line + "  <!-- " + rsname + " -->")
-                     
+
         RuleSets[rsname] = rslines
-        
-        
+
+
     # Insert IPRuleSet after GotoRule (first time used, only)
     m=re.search(r' RuleSets="([^"]+)', line)
     if m:
@@ -205,7 +205,7 @@ while True:
             for l in rslines:
                 lines.append(indent + "    " + l)
             RuleSets[rsname]=True  # flag that it's already been displayed
-    
+
 
 
     # Scrape names
@@ -242,7 +242,7 @@ while True:
 
             # Set the name and its text!
             Names[n].append( text )
-        
+
 
 
 #
@@ -252,7 +252,7 @@ while True:
 def dumpnames(line, recurse=0):
 
     displayed={}
-    
+
     # Grab current line indent
     m = re.match(r'^(\s*)', line)
     indent = m.group(1)
@@ -263,8 +263,8 @@ def dumpnames(line, recurse=0):
         XMLentity = m.group(1)
     else:
         XMLentity = '???'
-        
-    
+
+
     # Find all Foo="Value" in the line
     param = {}
     for m in re.finditer(r'\s([a-zA-Z0-9_.]+)="([^"]+)"', line):
@@ -282,7 +282,7 @@ def dumpnames(line, recurse=0):
 
         if XMLentity=="UserAuthRule" and paramname in ["Agent", "AuthSource"]:
             continue
-        
+
         if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering"]:
             continue
 
@@ -319,7 +319,7 @@ def dumpnames(line, recurse=0):
                 out(indent + "        (skipping %u more)" % (len(paramvalues)-4))
                 break
 
-            # Map parameter name to what XML entity/ies we should be looking for 
+            # Map parameter name to what XML entity/ies we should be looking for
             find = r"<" + paramname  # default: if it's <xmlentity Foo="bar">, then look for a "<Foo" that had Name="bar"
             if XMLentity=="WebProfile" and paramname=="HTTPBanners":
                 find = r"<HTTPALGBanners "
@@ -347,13 +347,13 @@ def dumpnames(line, recurse=0):
                                "SATTranslateToIP", "NATSenderAddress",
                                "IPAddressPool", "Address.0", "Address.1",
                                "SourceNewIP", "DestNewIP",
-                               "LocalEndpoint", "RemoteEndpoint", "MonitoredIP", "LocalNetwork", "RemoteNetwork", "OriginatorHAIP", 
-                               "IPPool", 
+                               "LocalEndpoint", "RemoteEndpoint", "MonitoredIP", "LocalNetwork", "RemoteNetwork", "OriginatorHAIP",
+                               "IPPool",
                                "Addresses",
                                "InControlIP",
                                "DefaultGateway", "DNS1", "DNS2", "Host",
                                "TargetDHCPServer", "TargetDHCPServer2",
-                               "DNSServer1", "DNSServer2", "DNSServer3", 
+                               "DNSServer1", "DNSServer2", "DNSServer3",
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
                  ( XMLentity in ["IP4Group","IP6Group"] and paramname=="Members" ):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
@@ -380,11 +380,11 @@ def dumpnames(line, recurse=0):
                 find = r"<(Ethernet|LinkAggregation) "
             elif paramname=="SourceGeoFilter":
                 find = r"<GeolocationFilter "
-            
+
             # Find according to type ("find" regex)
             found=0
             for instance in Names[n]:
-                    
+
                 if re.match(find, instance):
                     dumpone(instance)
                     found=found+1
@@ -397,7 +397,7 @@ def dumpnames(line, recurse=0):
                 out("FUZZY MATCH ATTEMPT (tell miol):")  # miol needs to work
                 for instance in Names[n]:
                     dumpone(instance)
-                    
+
 
 #
 # Certificate and private key dumping
@@ -408,7 +408,7 @@ try:
     from cryptography import x509
     from cryptography.hazmat.backends import default_backend as cryptography_hazmat_backends_default_backend
     from cryptography.hazmat.primitives import serialization as cryptography_hazmat_primitives_serialization
-    
+
 except ImportError:
     cryptography = None
 
@@ -422,7 +422,7 @@ def has_cryptography():
         notice("The PyCA 'cryptography' module is not installed. If you do 'pip install cryptography' in an elevated command prompt, I can show you the cert contents!", None)
         warned_about_cryptography=True
     return False
-    
+
 
 def unpem(pemder):
     if type(pemder) is str:
@@ -439,17 +439,17 @@ def unpem(pemder):
         pass
     except TypeError:    # python2 only?
         pass
-        
+
     # that wasn't base64! assume it's DER and don't touch it
     return pemder
-    
-    
+
+
 # Certificate
 def DumpCertificate(prefix, pemder):
     if pemder==None:
         return
     out = lambda *texts: orig_out(prefix, stdout=False, *texts, )
-    
+
     der = unpem(pemder)
     if b"\x02" not in der:
         out("Base64 decoding again because contents are %s (%i bytes)" %(repr(der[0:80]), len(der)))
@@ -465,7 +465,7 @@ def DumpCertificate(prefix, pemder):
         return
 
     cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
-    
+
     def myrepr(obj):   # repr() and remove some junk we don't need to see 99% of the time
         txt = repr(obj)
         if re.match(r"^<KeyUsage", txt):
@@ -475,13 +475,13 @@ def DumpCertificate(prefix, pemder):
         txt = re.sub(r"<UniformResourceIdentifier\(value=('http[^']*')\)>", r"\1", txt)
         txt = re.sub(r"\(value=('[^']*')\)", r" \1", txt)    # (value='foo') -> ('foo')
         txt = re.sub(r"<ObjectIdentifier\((oid=[^)]+)\)>", r"(\1)", txt)  # so this won't hit if obj is an oid
-        
+
         return txt
-    
+
 
     line = "Subject: " + myrepr(cert.subject)    # save for notices
     out(line)
-    
+
     pubkey = cert.public_key()
     out("Public key size: %u bits" % pubkey.key_size)
     if pubkey.key_size>3100:
@@ -497,18 +497,18 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
 
     assert(bin(cert.serial_number)[0:3]=="0b1")
     num1 = bin(cert.serial_number)[2:].count("1")
-    num0 = bin(cert.serial_number)[2:].count("0") 
+    num0 = bin(cert.serial_number)[2:].count("0")
     out("Serial: %u (0x%x - %u ones, %u zeroes%s)" %
-            (cert.serial_number, cert.serial_number, num0, num1, 
+            (cert.serial_number, cert.serial_number, num0, num1,
             " - good!" if num0+num1>=63 and num0>=28 and num1>=28 else ""\
        )    )
     if num0+num1 < 63:
-        notice("""Serial number 0x%x is shorter than 63 bits, so cannot possibly contain 63+ bits of entropy. 
+        notice("""Serial number 0x%x is shorter than 63 bits, so cannot possibly contain 63+ bits of entropy.
 This may open the certificate up to hash collision attacks!""" % cert.serial_number, line)
     else:
         # This is not a test of GOOD entropy. For all we know, someone is setting 90% of the serial to 01010101... all the time. But it'll catch known-BAD behavior.
         if num0<28 or num1<28:  # in any decent-entropy PRNG
-            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 28+ of both. 
+            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 28+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
                    % (cert.serial_number, num1, num0), line)
 
@@ -522,7 +522,7 @@ This smells like bad entropy and may open the certificate up to hash collision a
     # not needed, part of signature algorithm out("Signature hash algorithm: ", str(cert.signature_hash_algorithm))
     out("Signature algorithm: ", myrepr(cert.signature_algorithm_oid))
 
-    from cryptography.x509.oid import _OID_NAMES 
+    from cryptography.x509.oid import _OID_NAMES
 
     for ext in cert.extensions:
         if ext.oid in _OID_NAMES:
@@ -562,21 +562,21 @@ def DumpPrivateKey(prefix, pemder):
     from cryptography.hazmat.primitives.asymmetric import dsa,rsa,ec
     if isinstance(key, rsa.RSAPrivateKey):
         out("RSA private key, %u bits" % (key.key_size))
-        
+
     elif isinstance(key, dsa.DSAPrivateKey):
         out("DSA private key, %u bits" % (key.key_size))
 
     elif isinstance(key, ec.EllipticCurvePrivateKey):
         out("EC private key, %u bits" % (key.key_size))
         out("Curve name: " % (key.name))
-        
+
     else:
         out("I don't know what type of key this is?! Tried RSA,DSA,EC.  : %s" % (repr(key)))
         return
-    
-    
-    
-    
+
+
+
+
 
 
 
@@ -591,7 +591,7 @@ currentCommentGroupIndent=0
 for line in lines:
     line = re.sub(r'[ \t\r\n]+$', "", line)
 
-    # Comment out disabled lines     
+    # Comment out disabled lines
     if re.search(r' disabled="1"[ />]', line):
         line = re.sub(r"""^(\s+)""", r"""\1<!-- disabled! --> """, line)
         out(line)
@@ -611,7 +611,7 @@ for line in lines:
                 if currentCommentGroup>0:
                     out((" " * currentCommentGroupIndent) + "</CommentGroup>")
                     out("")
-                
+
                 currentCommentGroup=cg
                 currentCommentGroupIndent = len(indent)
                 if cg==0:
@@ -621,7 +621,7 @@ for line in lines:
                     out(indent + re.sub(r"/>", ">", CommentGroups[cg-1]))
                 else:
                     out(indent + "<CommentGroup id={0}>   <!-- Unknown id {0}, we only have {1} -->".format(cg, len(CommentGroups)) )
-                    
+
                 out("")
 
     if currentCommentGroup>0:
@@ -660,7 +660,7 @@ for line in lines:
     # Screen saver active = bad for CPU
     if re.match(r'\s*<MiscSettings.* ScrSave="', line):
         notice("Non-blank screensaver in use - causes small but unnecessary CPU hickups every screen update", line)
-        
+
     # FwdFast = bad for CPU
     if re.search(r' Action="FwdFast"', line):
         notice("FwdFast rule in use - if this forwards thousands of PPS it will cause high CPU load", line)
@@ -683,7 +683,7 @@ for line in lines:
         notice("That's a very low MaxLoss - risks happening too often!", line)
     elif n and int(n)>30:
         notice("That's a very high MaxLoss - it'll take a very long time to trigger!", line)
-    
+
 
 
     # Services that people like to edit and will confuse us
@@ -694,8 +694,8 @@ for line in lines:
         expectmatch(r' Name="ike" ', r' DestinationPorts="500" ')
 
 
-        
-    
+
+
     #
     # Certificate?
     #
@@ -703,8 +703,8 @@ for line in lines:
     if re.match(r'\s*<Certificate ', line):
         DumpCertificate("CertificateData: ", re_group(r' CertificateData="([^"]+)"', line, 1, None) )
         DumpPrivateKey("PrivateKey: ", re_group(r' PrivateKey="([^"]+)"', line, 1, None) )
-            
-    
+
+
     #
     # Make note of major features
     #
@@ -744,12 +744,12 @@ for line in lines:
         pass
 
     else:
-        
+
         dumpnames(line)
-            
+
         out("")
 
-            
+
 
 #
 # FINAL LOGIC
@@ -760,7 +760,7 @@ for k,v in RuleSets.items():
         txt = "Info: Unused IPRuleSet: " + v[0]
         print(txt)
         out("<!-- " + txt + "-->")
-            
+
 
 #
 # RE-DUMP ALL SETTINGS FOUND
@@ -804,42 +804,42 @@ if len(AllNotices)>0:
     out("", stdout=True)
     out("<!-- COPY OF NOTICES FOUND ABOVE: -->", stdout=True)
 
-    NoticeCounts = {}    
+    NoticeCounts = {}
     header = "        NOTICE: "
     indent = "                "
     for i in AllNotices:
         text = i["text"]
         line= i.get("line")
         NoticeCounts[text] = NoticeCounts.get(text, 0) + 1
-        
+
         if NoticeCounts[text] > 5:
             continue
-        
+
         out("", stdout = True)
         if line:
             out("  " + line, stdout = True)
         out(header + re.sub(r"\n", "\n"+indent, text), stdout = True)
-    
+
     out("", stdout = True)
     for text,n in NoticeCounts.items():
         if n>5:
             out("This notice occured %u more times:   (see inline for all)" % (n-5))
             out("    " + text)
 
-    
-    
-        
-out("<!-- EOF -->")        
 
-print("")    
+
+
+out("<!-- EOF -->")
+
+print("")
 print("Done. Written to " + outfilename)
 outfile.close()
 
 
-for pf in [os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)')]:
-    exe = pf + "\\Notepad++\\notepad++.exe"
-    print(exe)
-    if os.path.isfile(exe):
-        print("   yes")
-        subprocess.call( [exe, outfilename] )
-    
+for pf in [os.environ.get('ProgramW6432'), os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)')]:
+    if pf:
+        exe = pf + "\\Notepad++\\notepad++.exe"
+        print(exe)
+        if os.path.isfile(exe):
+            print("   yes")
+            subprocess.call( [exe, outfilename] )
