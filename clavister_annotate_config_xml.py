@@ -523,6 +523,8 @@ This smells like bad entropy and may open the certificate up to hash collision a
         notice("Certificate not valid yet! Earliest: " + cert.not_valid_before.strftime("%Y-%m-%d %H:%M"), line)
     if datetime.datetime.utcnow() > cert.not_valid_after:
         notice("Certificate no longer valid! Latest: " + cert.not_valid_after.strftime("%Y-%m-%d %H:%M"), line)
+    elif datetime.datetime.utcnow() + datetime.timedelta(days=14) > cert.not_valid_after:
+        notice("Certificate expires soon: " + cert.not_valid_after.strftime("%Y-%m-%d %H:%M"), line)
 
     out("Issuer: ", myrepr(cert.issuer))
     # not needed, part of signature algorithm out("Signature hash algorithm: ", str(cert.signature_hash_algorithm))
