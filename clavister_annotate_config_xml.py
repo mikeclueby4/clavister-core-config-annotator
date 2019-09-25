@@ -93,7 +93,7 @@ def re_group(regex, string, groupnum, defaultvalue):
 def shorten(text):
     return re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
 
-def addfeature(key, desc = None):
+def addfeature(key, desc = None, subclass = None):
     if type(desc) is str:
         desc = re.sub(r"^\s+", "", desc)
     if not key in AllFeatures:
@@ -102,6 +102,9 @@ def addfeature(key, desc = None):
         AllFeatures[key]['count'] += 1
     if desc and len(AllFeatures[key]['lines'])<3:
         AllFeatures[key]['lines'].append(desc)
+
+    AllFeatures[key]['subclass'] = subclass
+
 
 
 dhdescs = { 1: "768-bit MODP", 2: "1024-bit MODP", 5: "1536-bit MODP", 14: "2048-bit MODP",
@@ -716,30 +719,36 @@ for line in lines:
 
     if re.match(r'\s*<HighAvailability ', line):
         addfeature("HA", line)
-    if re.match(r'\s*<LinkAggregation ', line):
-        addfeature("Link Aggregation", shorten(line))
     if re.match(r'\s*<IPsecTunnel ', line):
         addfeature("IPsec Tunnels")
     if re.match(r'\s*<PipeRule ', line):
         addfeature("Pipe Rules")
     if re.match(r'\s*<IP(Rule|Policy) ', line):
         addfeature("Rules")
-    if re.match(r'\s*<EmailControlProfile ', line):
-        addfeature("EmailControlProfile", shorten(line))
-    if re.match(r'\s*<WebProfile ', line):
-        addfeature("WebProfile", shorten(line))
-    if re.match(r'\s*<AntiVirusPolicy ', line):
-        addfeature("AntiVirusPolicy", shorten(line))
-    if re.match(r'\s*<FileControlPolicy ', line):
-        addfeature("FileControlPolicy", shorten(line))
-    if re.match(r'\s*<Route .* RouteMonitor="True" ', line):
-        addfeature("Route monitoring", shorten(line))
     if re.match(r'\s*<SLBPolicy ', line):
         addfeature("SLB", shorten(line))
     if re.match(r'\s*<LinkMonitor ', line):
         addfeature("LinkMonitor", shorten(line))
+
+    subclass = "Routing"
+    if re.match(r'\s*<Route .* RouteMonitor="True" ', line):
+        addfeature("Route monitoring", shorten(line), subclass)
     if re.match(r'\s*<RouteBalancingInstance ', line):
-        addfeature("Route Balancing", shorten(line))
+        addfeature("Route Balancing", shorten(line), subclass)
+    if re.match(r'\s*<LoopbackInterface ', line):
+        addfeature("Route Balancing", shorten(line), subclass)
+    if re.match(r'\s*<LinkAggregation ', line):
+        addfeature("Link Aggregation", shorten(line), subclass)
+
+    subclass = "Content Inspection"
+    if re.match(r'\s*<EmailControlProfile ', line):
+        addfeature("EmailControlProfile", shorten(line), subclass)
+    if re.match(r'\s*<WebProfile ', line):
+        addfeature("WebProfile", shorten(line), subclass)
+    if re.match(r'\s*<AntiVirusPolicy ', line):
+        addfeature("AntiVirusPolicy", shorten(line), subclass)
+    if re.match(r'\s*<FileControlPolicy ', line):
+        addfeature("FileControlPolicy", shorten(line), subclass)
 
     #
     # Output names we see in the line (recursively, 1 level)
@@ -783,9 +792,18 @@ out("")
 # OUTPUT FEATURES IN USE
 #
 
-out("")
-out("<!-- MAJOR FEATURES -->")
+byclass = {}
 for key,data in AllFeatures.items():
+    c = data['subclass']
+    if not c in byclass:
+        byclass[c] = {}
+    byclass[c][key] = data
+
+for subclass,features in byclass.items():
+out("")
+    out("<!-- ", subclass or "MAJOR FEATURES", " -->")
+
+    for key,data in features.items():
     out("")
     prefix = "    %-16s " % key
     indent = " " * len(prefix)
@@ -797,6 +815,7 @@ for key,data in AllFeatures.items():
             prefix = indent
         if len(data['lines']) < data['count']:
             out("{}({} more)".format(indent, data['count']-len(data['lines'])))
+
 out("")
 
 
