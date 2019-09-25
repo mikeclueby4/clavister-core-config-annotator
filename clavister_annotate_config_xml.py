@@ -9,11 +9,14 @@ import base64
 import binascii
 import textwrap
 
-#sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190815.bak")
+CURRENT_CORE_VERSION = "12.00.20"
+
+#sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
-sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
+# sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-MAD-ClvA-20190920-v745.bak-annotated.xml")
 
 filename = sys.argv[1]
 
@@ -386,6 +389,8 @@ def dumpnames(line, recurse=0):
                 find = r"<(Ethernet|LinkAggregation) "
             elif paramname=="SourceGeoFilter":
                 find = r"<GeolocationFilter "
+            elif paramname=="ConfigUser":  # <SecurityGateway
+                find = r"<User "
 
             # Find according to type ("find" regex)
             found=0
@@ -648,8 +653,8 @@ for line in lines:
         m = re.search(r' SchemaVersion="(([0-9]+)\.([0-9]+)\.([0-9]+))', line)
         if not m:
             notice("""Couldn't find a SchemaVersion="nn.nn.nn..." ?""", line)
-        elif m.group(1) != "12.00.19":
-            notice("Version is not 12.00.19 -- it was %s" % (m.group(1)), line)
+        elif m.group(1) != CURRENT_CORE_VERSION:
+            notice("SchemaVersion was %s - latest is %s. (This may be due to InControl Global schema version and unavoidable because of older firewalls in the tree.)" % (m.group(1), CURRENT_CORE_VERSION), line)
 
         m = re.search(r' ConfigDate="([^"]+)', line)
         if not m:
@@ -659,7 +664,7 @@ for line in lines:
             if delta < -3600*12:   # accept up to 12 timezones ahead
                 notice("Config date is in the future?", line)
             elif delta > 3600*24*7*2:
-                notice("Config date is %u weeks ago" % (delta/3600/24/7), line)
+                notice("Config date is %u weeks ago. (Is there a newer one?)" % (delta/3600/24/7), line)
 
     # Screen saver active = bad for CPU
     if re.match(r'\s*<MiscSettings.* ScrSave="', line):
@@ -673,7 +678,7 @@ for line in lines:
 
     # world-to-one SAT
     if re.search(r' DestAddressTranslation="SAT".*DestAddressAction="SingleIP".*DestinationNetwork="(all-nets|all-nets6|0.0.0.0/0)"', line):
-        notice("Rewriting Dest=0.0.0.0/0 to one IP. This might work for HTTP. Will likely _NOT_ work for HTTPS, because hostcert. Double check what they're trying to do.", line)
+        notice("Rewriting Dest=0.0.0.0/0 to one IP. This might work for HTTP. Will likely _NOT_ work for HTTPS, due to certificates. Double check what we are trying to do.", line)
 
     # Nutty DH groups in IPsec
     dhs = re_group(r' DHGroup="([^"]+)"', line, 1, "")
@@ -786,8 +791,8 @@ for k,v in RuleSets.items():
 
 out("")
 out("<!-- ALL SETTINGS BELOW - USUALLY ONLY ONES CHANGED FROM DEFAULTS -->")
-out("")
 for txt in AllSettings:
+    out("")
     out("   " + txt)
 out("")
 
@@ -804,21 +809,21 @@ for key,data in AllFeatures.items():
     byclass[c][key] = data
 
 for subclass,features in byclass.items():
-out("")
+    out("")
     out("<!-- ", subclass or "MAJOR FEATURES", " -->")
 
     for key,data in features.items():
-    out("")
-    prefix = "    %-16s " % key
-    indent = " " * len(prefix)
-    if len(data['lines'])<1:
-        out(prefix + str(data['count']))
-    else:
-        for desc in data['lines']:
-            out(prefix + desc)
-            prefix = indent
-        if len(data['lines']) < data['count']:
-            out("{}({} more)".format(indent, data['count']-len(data['lines'])))
+        out("")
+        prefix = "    %-16s " % key
+        indent = " " * len(prefix)
+        if len(data['lines'])<1:
+            out(prefix + str(data['count']))
+        else:
+            for desc in data['lines']:
+                out(prefix + desc)
+                prefix = indent
+            if len(data['lines']) < data['count']:
+                out("{}({} more)".format(indent, data['count']-len(data['lines'])))
 
 out("")
 
