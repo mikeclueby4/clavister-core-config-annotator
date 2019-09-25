@@ -869,10 +869,14 @@ print("Done. Written to " + outfilename)
 outfile.close()
 
 
+tried = []
 for pf in [os.environ.get('ProgramW6432'), os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)')]:
     if pf:
         exe = pf + "\\Notepad++\\notepad++.exe"
-        print(exe)
+        tried.append(exe)
         if os.path.isfile(exe):
-            print("   yes")
+            print('Executing "{}" "{}"'.format(exe, outfilename) )
             subprocess.call( [exe, outfilename] )
+            break
+else:
+        print("Can't find notepad++ to launch. Tried " + ", ".join(tried))
