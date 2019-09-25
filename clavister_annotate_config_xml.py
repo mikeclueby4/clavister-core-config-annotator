@@ -83,11 +83,12 @@ out("<!-- from " + filename + "  - " + datetime.datetime.now().strftime("%Y-%m-%
 # UTILITY
 #
 
-def re_group(regex, string, group, default):
+def re_group(regex, string, groupnum, defaultvalue):
+    ''' Return match.group(groupnum), or the defaultvalue if regex did not match '''
     m = re.search(regex, string)
     if not m:
-        return default
-    return m.group(group)
+        return defaultvalue
+    return m.group(groupnum)
 
 def shorten(text):
     return re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
