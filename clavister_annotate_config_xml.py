@@ -303,7 +303,7 @@ def dumpnames(line, recurse=0):
                 displayed[instance] = True
                 # Include commentgroup description
                 cg = int(re_group(r' CommentGroup="([0-9]+)"', instance, 1, -1)) - 1
-                if cg<len(CommentGroups):
+                if 0<=cg<len(CommentGroups):
                     desc = re_group(r' Description="([^"]+)"', CommentGroups[cg], 1, None)
                     if desc:
                         instance = re.sub(r' CommentGroup="([0-9]+)"', ' CommentGroup="' + desc + '"', instance)
