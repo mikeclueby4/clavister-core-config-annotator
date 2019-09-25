@@ -451,10 +451,9 @@ def unpem(pemder):
 
 
 # Certificate
-def DumpCertificate(prefix, pemder):
+def DumpCertificate(out, pemder, line):
     if pemder==None:
         return
-    out = lambda *texts: orig_out(prefix, stdout=False, *texts, )
 
     der = unpem(pemder)
     if b"\x02" not in der:
@@ -485,8 +484,7 @@ def DumpCertificate(prefix, pemder):
         return txt
 
 
-    line = "Subject: " + myrepr(cert.subject)    # save for notices
-    out(line)
+    out("Subject: " + myrepr(cert.subject))
 
     pubkey = cert.public_key()
     out("Public key size: %u bits" % pubkey.key_size)
@@ -501,7 +499,7 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
         notice("Key size %u is considered unsafe. Use at least 1536. Preferably 2048." % pubkey.key_size, line)
 
 
-    assert(bin(cert.serial_number)[0:3]=="0b1")
+    assert(cert.serial_number==0 or bin(cert.serial_number)[0:3]=="0b1")   # we're assuming "0b" and no leading zeroes for the .count()s below
     num1 = bin(cert.serial_number)[2:].count("1")
     num0 = bin(cert.serial_number)[2:].count("0")
     out("Serial: %u (0x%x - %u ones, %u zeroes%s)" %
@@ -541,11 +539,9 @@ This smells like bad entropy and may open the certificate up to hash collision a
                 notice("Contained CRITICAL extension " + ext.oid.dotted_string.strip() + " which I don't recognize so in THEORY this is an invalid certificate. Maybe. Except x509 and standards so who knows.", line)
 
 # Private key
-def DumpPrivateKey(prefix, pemder):
+def DumpPrivateKey(out, pemder, line):
     if pemder==None:
         return
-
-    out = lambda text: orig_out(prefix, text, stdout=False)
 
     der = unpem(pemder)
     if b"\x02" not in der:
@@ -558,13 +554,13 @@ def DumpPrivateKey(prefix, pemder):
     try:
         key = cryptography_hazmat_primitives_serialization.load_der_private_key(der, None, cryptography_hazmat_backends_default_backend())
     except TypeError as e:  # it was password protected!
-        out("Private key was password protected, which will never work! - %s" % (e))
+        notice("Private key was password protected, which will never work! - %s" % (e), line)
         return
     except ValueError as e:   # broken DER
-        out("%s - data was %s (%i bytes)" % (e, repr(der[0:80]), len(der)))
+        notice("%s - data was %s (%i bytes)" % (e, repr(der[0:80]), len(der)), line)
         return
     except cryptography.exceptions.UnsupportedAlgorithm as e:
-        out("%s - data was %s (%i bytes)" % (e, repr(der[0:80]), len(der)))
+        notice("%s - data was %s (%i bytes)" % (e, repr(der[0:80]), len(der)), line)
         return
 
     from cryptography.hazmat.primitives.asymmetric import dsa,rsa,ec
@@ -579,7 +575,7 @@ def DumpPrivateKey(prefix, pemder):
         out("Curve name: " % (key.name))
 
     else:
-        out("I don't know what type of key this is?! Tried RSA,DSA,EC.  : %s" % (repr(key)))
+        notice("I don't know what type of key this is?! Tried RSA,DSA,EC.  : %s" % (repr(key)), line)
         return
 
 
@@ -711,8 +707,14 @@ for line in lines:
     #
 
     if re.match(r'\s*<Certificate ', line):
-        DumpCertificate("CertificateData: ", re_group(r' CertificateData="([^"]+)"', line, 1, None) )
-        DumpPrivateKey("PrivateKey: ", re_group(r' PrivateKey="([^"]+)"', line, 1, None) )
+
+        def outputter(*texts):
+            out(indent + "        <!-- ", *texts, " -->")
+
+        out(indent + "    <!-- CertificateData ==== -->")
+        DumpCertificate(outputter, re_group(r' CertificateData="([^"]+)"', line, 1, None) , shorten(line))
+        out(indent + "    <!-- PrivateKey ==== -->")
+        DumpPrivateKey(outputter, re_group(r' PrivateKey="([^"]+)"', line, 1, None) , shorten(line))
 
 
     #
