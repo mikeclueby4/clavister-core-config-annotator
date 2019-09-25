@@ -495,9 +495,9 @@ def DumpCertificate(prefix, pemder):
 It MAY be okay if external parties cannot trigger it. But anything open to many users is a potential hazard.""" % pubkey.key_size, line)
     elif pubkey.key_size>2100:
         notice("Key size %u is probably larger than needed. You typically never need more than 2048 bits unless national security is involved." % pubkey.key_size, line)
-    elif pubkey.key_size<1020:
+    elif pubkey.key_size<800:
         notice("Key size %u is TRIVIALLY CRACKABLE. Use at least 1536. Preferably 2048." % pubkey.key_size, line)
-    elif pubkey.key_size<1530:
+    elif pubkey.key_size<1500:
         notice("Key size %u is considered unsafe. Use at least 1536. Preferably 2048." % pubkey.key_size, line)
 
 
