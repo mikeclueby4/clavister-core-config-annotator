@@ -513,8 +513,8 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
 This may open the certificate up to hash collision attacks!""" % cert.serial_number, line)
     else:
         # This is not a test of GOOD entropy. For all we know, someone is setting 90% of the serial to 01010101... all the time. But it'll catch known-BAD behavior.
-        if num0<28 or num1<28:  # in any decent-entropy PRNG
-            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 28+ of both.
+        if num0<26 or num1<26:  # in any decent-entropy PRNG
+            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 26+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
                    % (cert.serial_number, num1, num0), line)
 
