@@ -661,9 +661,11 @@ for line in lines:
     if re.match(r'\s*<MiscSettings.* ScrSave="', line):
         notice("Non-blank screensaver in use - causes small but unnecessary CPU hickups every screen update", line)
 
-    # FwdFast = bad for CPU
+    # FwdFast/StatelessPolicy = bad for CPU
     if re.search(r' Action="FwdFast"', line):
         notice("FwdFast rule in use - if this forwards thousands of PPS it will cause high CPU load", line)
+    if re.search(r'<StatelessPolicy ', line):
+        notice("StatelessPolicy in use - if this forwards thousands of PPS it will cause high CPU load", line)
 
     # world-to-one SAT
     if re.search(r' DestAddressTranslation="SAT".*DestAddressAction="SingleIP".*DestinationNetwork="(all-nets|all-nets6|0.0.0.0/0)"', line):
