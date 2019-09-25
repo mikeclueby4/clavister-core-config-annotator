@@ -118,6 +118,7 @@ dhdescs = { 1: "768-bit MODP", 2: "1024-bit MODP", 5: "1536-bit MODP", 14: "2048
            }
 
 def dhdesc(group, line):
+    ''' Return description of given group number. Will also notice() about problems, using the supplied line as context '''
     if re.match(r" *[Nn]one *$", group):
         notice("Not using DH is not recommended. It MAY be acceptable for PFS, but we recommend at least group 5 and preferably group 14", line)
         return "None - don't use Diffie-Hellman key negotiation"
@@ -216,11 +217,11 @@ while True:
         n = m.group(2)
 
         if re.match(r'<DefaultInterface ', text):
-            pass
+            pass    # we know this
         elif re.match(r'<IP4[HA]*Address ', text) and n in ["all-nets", "localhost"]:
-            pass
+            pass    # we know this
         elif re.match(r'<IP6[HA]*Address ', text) and n in ["all-nets6", "localhost6"]:
-            pass
+            pass    # we know this
         else:
 
             if not n in Names:
