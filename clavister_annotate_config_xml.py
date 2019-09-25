@@ -305,7 +305,8 @@ def dumpnames(line, recurse=0):
 
                 outline = indent + "        <!-- " + n + " = " + instance + " -->"
                 out(outline)
-                if recurse==0:
+                if recurse==0 or \
+                   (recurse <=1 and re.match(r"<IP[46]HAAddress", instance)):
                     dumpnames(indent + "        " + instance, recurse+1)
 
         # Dump those we recognize as Names defined earlier
