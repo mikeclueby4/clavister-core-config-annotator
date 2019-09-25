@@ -90,7 +90,7 @@ def re_group(regex, string, group, default):
     return m.group(group)
 
 def shorten(text):
-    return re.sub(r'="([^"]{20,})"', r'="\1..."', text)
+    return re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
 
 def addfeature(key, desc = None):
     if type(desc) is str:
