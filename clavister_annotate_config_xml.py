@@ -8,6 +8,8 @@ import datetime
 import base64
 import binascii
 import textwrap
+from dataclasses import dataclass
+from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
 CURRENT_CORE_VERSION = "12.00.20"
 
@@ -21,11 +23,50 @@ sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-MAD-ClvA-201
 filename = sys.argv[1]
 
 CommentGroups = []  # raw text lines, index=0 matches id=1, etc
-RuleSets = {}       # e.g. 'MyRuleSet' = [ "line", "line", ... ]
-Names = {}          # Will contain e.g. 'fooname' = [ "<iprule ...>", "<ip4address ...", ... ]
-AllFeatures = {}    # will be dumped at end, "HA" = "<HighAvailability ...""
+RuleSets =  {}      # type: Dict[str, Optional[List[str]]]
+                    # e.g. 'MyRuleSet' = [ "line", "line", ... ] or True
+Names = {}          # type: Dict[str, List[str]]
+                    # e.g. 'fooname' = [ "<iprule ...>", "<ip4address ...", ... ]
+
+
 AllSettings = []    # raw text lines in order
-AllNotices = []     # raw text lines in order
+
+
+#
+# Notices
+#
+
+@dataclass
+class Notice:
+    message : str   # "wrong foo in bar"
+    line : str      # actual line in configuration
+
+AllNotices : List[Notice] = []
+
+
+#
+# Features
+#
+
+
+@dataclass
+class Feature:
+    lines : List[str]     # 0 or more examples of uses of this feature (config lines)
+    count : int
+    subclass : str     # "Routing", "Content Inspection", ...
+
+
+AllFeatures : Dict[str, Feature]= {}    # will be dumped at end, e.g. "HA" = "<HighAvailability ...""
+
+def addfeature(key, desc = None, subclass = None):
+    if type(desc) is str:
+        desc = re.sub(r"^\s+", "", desc)
+    if not key in AllFeatures:
+        AllFeatures[key] = Feature([], 1, subclass)
+    else:
+        AllFeatures[key].count += 1
+    if desc and len(AllFeatures[key].lines)<3:
+        AllFeatures[key].lines.append(desc)
 
 
 
@@ -35,6 +76,8 @@ AllNotices = []     # raw text lines in order
 
 filename = re.sub(r'-annotated\.xml$', '', filename)   # for notepad++ "Run" on already-annotated file
 print(sys.argv[0] + ": processing " + filename)
+
+f : TextIO
 
 if re.search(r'\.bak', filename.lower()):
     with open(filename, "rb") as raw:
@@ -59,6 +102,8 @@ else:
 outfilename = filename + "-annotated.xml"
 outfile = open(outfilename, "wt", encoding="utf-8")
 
+print("Outputting to " + outfilename)
+
 
 def out(*texts, stdout = False):
     for v in texts:
@@ -72,15 +117,15 @@ def out(*texts, stdout = False):
 
 orig_out = out  # copy of original so out() can be locally redefined inside functions
 
-def notice(text, line):
+def notice(message, line):
     header = "NOTICE: "
     indent = "        "
 
-    outfile.write(header + re.sub(r"\n", "\n" + indent, text) + "\n")
-    AllNotices.append( { "line": line, "text": text } )
+    outfile.write(header + re.sub(r"\n", "\n" + indent, message) + "\n")
+    AllNotices.append( Notice(message, line) )
 
-print("Outputting to " + outfilename)
-out("<!-- from " + filename + "  - " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -->")
+
+
 
 #
 # UTILITY
@@ -96,17 +141,6 @@ def re_group(regex, string, groupnum, defaultvalue):
 def shorten(text):
     return re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
 
-def addfeature(key, desc = None, subclass = None):
-    if type(desc) is str:
-        desc = re.sub(r"^\s+", "", desc)
-    if not key in AllFeatures:
-        AllFeatures[key] = {'lines': [], 'count': 1}
-    else:
-        AllFeatures[key]['count'] += 1
-    if desc and len(AllFeatures[key]['lines'])<3:
-        AllFeatures[key]['lines'].append(desc)
-
-    AllFeatures[key]['subclass'] = subclass
 
 
 
@@ -205,14 +239,13 @@ while True:
         rsname = m.group(1)
         if not rsname in RuleSets:
             notice("Could not find IPRuleSet '" + rsname + "'??!?", line)
-        elif RuleSets[rsname]==True:
+        elif RuleSets[rsname]==None:
             lines.append(indent + "    <!-- IPRuleSet '" + rsname +"' already displayed above -->")
             lines.append("")
         else:
-            rslines = RuleSets[rsname]
-            for l in rslines:
+            for l in RuleSets[rsname]:   # type: ignore
                 lines.append(indent + "    " + l)
-            RuleSets[rsname]=True  # flag that it's already been displayed
+            RuleSets[rsname]=None  # flag that it's already been displayed
 
 
 
@@ -285,16 +318,23 @@ def dumpnames(line, recurse=0):
       num=0
       for paramvalue in paramvalues:
 
+        # parameters that do not contain resolvable names at all
+
         if re.match(r'^Service.*',XMLentity) and paramname in ["Protocol"]:
             continue
 
         if XMLentity=="UserAuthRule" and paramname in ["Agent", "AuthSource"]:
             continue
 
-        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering"]:
+        if XMLentity=="User" and paramname=="Groups":
             continue
 
-        if recurse>0:  # stuff we're not interested in showing _WHEN_ _RECURSING_
+        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering", "UserAuthGroups", "SNMPGetCommunity"]:
+            continue
+
+        # stuff we're not interested in showing _WHEN_ _RECURSING_
+
+        if recurse>0:
             if XMLentity=="InterfaceGroup" and paramname=="Members":
                 continue
             if paramname in ["EthernetDevice", "EthernetDevice.0", "EthernetDevice.1"]:
@@ -362,6 +402,7 @@ def dumpnames(line, recurse=0):
                                "InControlIP",
                                "DefaultGateway", "DNS1", "DNS2", "Host",
                                "TargetDHCPServer", "TargetDHCPServer2",
+                               "DHCPDNS1", "DHCPDNS2",  # dhcp-enabled interfaces
                                "DNSServer1", "DNSServer2", "DNSServer3",
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
                  ( XMLentity in ["IP4Group","IP6Group"] and paramname=="Members" ):
@@ -370,7 +411,7 @@ def dumpnames(line, recurse=0):
                 find = r"<Service"
             elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo"] or \
                  ( XMLentity == "InterfaceGroup" and paramname=="Members"):
-                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPServer|VLAN|LinkAggregation) "
+                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPServer|VLAN|LinkAggregation|L2TPClient) "
             elif paramname in ["EthernetDevice.0", "EthernetDevice.1", "SyncIface"]:
                 find = r"<EthernetDevice "
             elif paramname=="Key":
@@ -391,6 +432,12 @@ def dumpnames(line, recurse=0):
                 find = r"<GeolocationFilter "
             elif paramname=="ConfigUser":  # <SecurityGateway
                 find = r"<User "
+            elif paramname=="SSHKeys": # <User
+                find = r"<SSHClientKey "
+            elif paramname=="IKEConfigModePool":  # <IPsecTunnel
+                find = r"<ConfigModePool "
+            elif paramname=="RootCertificates": # <IPsecTunnel
+                find = r"<Certificate "
 
             # Find according to type ("find" regex)
             found=0
@@ -456,9 +503,19 @@ def unpem(pemder):
 
 
 # Certificate
-def DumpCertificate(out, pemder, line):
+def DumpCertificate(out : Callable,
+                    pemder : str,
+                    line : str
+                    ) -> Tuple[Any, bool]:    # cert, anonymized
+    '''
+    Parse and dump info about given certificate through the given out()
+
+    out: function to output the dump, must take parameters like the global out()"
+    pemder: PEM or DER format data
+    line: context for notice() calls
+    '''
     if pemder==None:
-        return
+        return None, False
 
     der = unpem(pemder)
     if b"\x02" not in der:
@@ -467,12 +524,21 @@ def DumpCertificate(out, pemder, line):
         der = unpem(der)
 
     if not has_cryptography():
-        return
+        return None, False
     try:
         cert = x509.load_der_x509_certificate(der, cryptography_hazmat_backends_default_backend())
     except ValueError as e:
         out(str(e), " - data was ", repr(der[0:80]), " (%u bytes)" % len(der))
-        return
+        return None, False
+
+
+    pubkey = cert.public_key()
+    anonymized = ("CN=Anonymous" in str(cert.subject)) and (pubkey.key_size==511)
+    if anonymized:
+        out("This certificate has been replaced with an anonymized dummy certificate. Not dumping contents.")
+        return cert, True
+
+    # custom repr()
 
     cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
 
@@ -491,8 +557,10 @@ def DumpCertificate(out, pemder, line):
 
     out("Subject: " + myrepr(cert.subject))
 
-    pubkey = cert.public_key()
     out("Public key size: %u bits" % pubkey.key_size)
+
+
+
     if pubkey.key_size>3100:
         notice("""Key size %u TOO LARGE. You never need more than 3072 bits. This will cause major CPU hits if computed often.
 It MAY be okay if external parties cannot trigger it. But anything open to many users is a potential hazard.""" % pubkey.key_size, line)
@@ -543,8 +611,10 @@ This smells like bad entropy and may open the certificate up to hash collision a
             if ext.critical:
                 notice("Contained CRITICAL extension " + ext.oid.dotted_string.strip() + " which I don't recognize so in THEORY this is an invalid certificate. Maybe. Except x509 and standards so who knows.", line)
 
+    return cert, pubkey.key_size
+
 # Private key
-def DumpPrivateKey(out, pemder, line):
+def DumpPrivateKey(out, pemder, line, anonymized=False):
     if pemder==None:
         return
 
@@ -566,6 +636,10 @@ def DumpPrivateKey(out, pemder, line):
         return
     except cryptography.exceptions.UnsupportedAlgorithm as e:
         notice("%s - data was %s (%i bytes)" % (e, repr(der[0:80]), len(der)), line)
+        return
+
+    if anonymized:
+        out("Anonymized private key")       # no point showing anything
         return
 
     from cryptography.hazmat.primitives.asymmetric import dsa,rsa,ec
@@ -594,6 +668,8 @@ def DumpPrivateKey(out, pemder, line):
 # Output pass
 #
 
+out("<!-- from " + filename + "  - " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -->")
+
 currentCommentGroup=0
 currentCommentGroupIndent=0
 
@@ -609,6 +685,11 @@ for line in lines:
 
     # Grab current line indent
     indent = re_group(r'^(\s*)', line, 1, "")
+
+
+    # Strip out things that never need to be shown
+    line = re.sub(r' SourceAddressTranslation="None"', "", line)
+
 
     # Prepend CommentGroup lines when we enter a new group
     if not re.match(r"\s*</", line):
@@ -717,9 +798,9 @@ for line in lines:
             out(indent + "        <!-- ", *texts, " -->")
 
         out(indent + "    <!-- CertificateData ==== -->")
-        DumpCertificate(outputter, re_group(r' CertificateData="([^"]+)"', line, 1, None) , shorten(line))
+        cert,anonymized = DumpCertificate(outputter, re_group(r' CertificateData="([^"]+)"', line, 1, None) , shorten(line))
         out(indent + "    <!-- PrivateKey ==== -->")
-        DumpPrivateKey(outputter, re_group(r' PrivateKey="([^"]+)"', line, 1, None) , shorten(line))
+        DumpPrivateKey(outputter, re_group(r' PrivateKey="([^"]+)"', line, 1, None) , shorten(line), anonymized=True)
 
 
     #
@@ -779,8 +860,8 @@ for line in lines:
 #
 
 for k,v in RuleSets.items():
-    if v!=True:
-        txt = "Info: Unused IPRuleSet: " + v[0]
+    if v!=None:
+        txt = "Info: Unused IPRuleSet: " + v[0]  # type: ignore
         print(txt)
         out("<!-- " + txt + "-->")
 
@@ -801,29 +882,30 @@ out("")
 # OUTPUT FEATURES IN USE
 #
 
-byclass = {}
-for key,data in AllFeatures.items():
-    c = data['subclass']
+byclass: Dict[str,Dict[str,Feature]]= {}
+
+for key,feat in AllFeatures.items():
+    c = feat.subclass
     if not c in byclass:
         byclass[c] = {}
-    byclass[c][key] = data
+    byclass[c][key] = feat
 
 for subclass,features in byclass.items():
     out("")
     out("<!-- ", subclass or "MAJOR FEATURES", " -->")
 
-    for key,data in features.items():
+    for key,feat in features.items():
         out("")
         prefix = "    %-16s " % key
         indent = " " * len(prefix)
-        if len(data['lines'])<1:
-            out(prefix + str(data['count']))
+        if len(feat.lines)<1:
+            out("{}{}".format(prefix, feat.count))
         else:
-            for desc in data['lines']:
+            for desc in feat.lines:
                 out(prefix + desc)
                 prefix = indent
-            if len(data['lines']) < data['count']:
-                out("{}({} more)".format(indent, data['count']-len(data['lines'])))
+            if len(feat.lines) < feat.count:
+                out("{}({} more)".format(indent, feat.count-len(feat.lines)))
 
 out("")
 
@@ -837,27 +919,25 @@ if len(AllNotices)>0:
     out("", stdout=True)
     out("<!-- COPY OF NOTICES FOUND ABOVE: -->", stdout=True)
 
-    NoticeCounts = {}
+    NoticeCounts: Dict[str,int] = {}
     header = "        NOTICE: "
     indent = "                "
-    for i in AllNotices:
-        text = i["text"]
-        line= i.get("line")
-        NoticeCounts[text] = NoticeCounts.get(text, 0) + 1
+    for noti in AllNotices:
+        NoticeCounts[noti.message] = NoticeCounts.get(noti.message, 0) + 1
 
-        if NoticeCounts[text] > 5:
+        if NoticeCounts[noti.message] > 5:
             continue
 
         out("", stdout = True)
-        if line:
-            out("  " + line, stdout = True)
-        out(header + re.sub(r"\n", "\n"+indent, text), stdout = True)
+        if noti.line:
+            out("  " + noti.line, stdout = True)
+        out(header + re.sub(r"\n", "\n"+indent, noti.message), stdout = True)
 
     out("", stdout = True)
-    for text,n in NoticeCounts.items():
-        if n>5:
-            out("This notice occured %u more times:   (see inline for all)" % (n-5))
-            out("    " + text)
+    for message,count in NoticeCounts.items():
+        if count>5:
+            out("This notice occured {} more times:   (see inline for all)".format(count-5))
+            out("    " + message)
 
 
 
