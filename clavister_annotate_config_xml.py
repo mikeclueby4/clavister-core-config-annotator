@@ -177,6 +177,62 @@ def dhdesc(group, line):
     return dhdescs[igroup]
 
 
+#
+# Entropy estimation
+#
+
+import lzma
+import random
+
+def lzmalen(binarybytes:bytes) -> int:
+    my_filters = [
+        {"id":lzma.FILTER_LZMA1}
+    ]
+    lzc = lzma.LZMACompressor(format=lzma.FORMAT_RAW, filters=my_filters)
+    lzc.compress(b'01')
+    retlen = len(lzc.compress( binarybytes ))
+    retlen += len(lzc.flush())
+    return retlen
+
+entropy_upperbounds: Dict[int,int] = {}   # e.g. 64 bits = 22 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
+entropy_lowerbounds: Dict[int,int] = {}   # e.g. 64 bits = 17 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
+
+def entropychecker(
+    binarytext: Union[bytes,str],   # "0b11110010001010100100001001"
+    line: str                       # context for notice()s
+    ) -> Tuple[bool, int, int, int, int]:
+    """
+    Verify that the given binary string compresses down to an expected length
+
+    return result>=entropy_lowerbounds[numbits]*0.95,
+            numbits,  # rounded up to byte-size
+            result,   # length of compression result
+            entropy_lowerbounds[numbits],    # 10th percentile lowest seen for random data, i.e. "bad luck"
+            entropy_upperbounds[numbits]     # highest seen for random data, i.e. "uncompressable"
+    """
+    if isinstance(binarytext, str):
+        binarytext = bytes(binarytext, encoding="utf-8")
+
+    assert(binarytext==b"0b0" or binarytext[0:3]==b"0b1")
+
+    numbits = len(binarytext)-2
+    numbits = int((numbits+7)/8)*8  # round up to nearest byte-size, mostly for cache hits in entropy_lowerbounds
+
+    minimumlen = lzmalen(b'1')   # about 13 bytes
+
+    if numbits not in entropy_lowerbounds:
+        samples = [lzmalen( bytes( bin(random.getrandbits(numbits))[2:] , encoding="utf-8" )) - minimumlen   for i in range(0,100)]
+        samples.sort()
+        entropy_lowerbounds[numbits] = samples[10]
+        entropy_upperbounds[numbits] = samples[-1]
+
+    result = lzmalen(binarytext[2:])-minimumlen
+
+    return result>=entropy_lowerbounds[numbits]*0.95, \
+            numbits, \
+            result, \
+            entropy_lowerbounds[numbits], \
+            entropy_upperbounds[numbits] \
 
 
 
