@@ -910,12 +910,14 @@ for line in lines:
         addfeature("LinkMonitor", shorten(line))
 
     subclass = "Routing"
+    if re.match(r'\s*<RoutingRule ', line):   # only trigger only RoutingRule, we don't care if there's unused routing tables for the "feature in use" display
+        addfeature("Policy-Based Routing (PBR)", shorten(line), subclass)
     if re.match(r'\s*<Route .* RouteMonitor="True" ', line):
         addfeature("Route monitoring", shorten(line), subclass)
     if re.match(r'\s*<RouteBalancingInstance ', line):
         addfeature("Route Balancing", shorten(line), subclass)
     if re.match(r'\s*<LoopbackInterface ', line):
-        addfeature("Route Balancing", shorten(line), subclass)
+        addfeature("Loopback Interface", shorten(line), subclass)
     if re.match(r'\s*<LinkAggregation ', line):
         addfeature("Link Aggregation", shorten(line), subclass)
 
