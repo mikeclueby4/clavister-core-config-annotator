@@ -896,6 +896,10 @@ for line in lines:
         addfeature("HA", line)
     if re.match(r'\s*<IPsecTunnel ', line):
         addfeature("IPsec Tunnels")
+    if re.match(r'\s*<L2TPv?[23]?Server ', line):
+        addfeature("L2TP Server", shorten(line))
+    if re.match(r'\s*<L2TPv?[23]?Client ', line):
+        addfeature("L2TP Client", shorten(line))
     if re.match(r'\s*<PipeRule ', line):
         addfeature("Pipe Rules")
     if re.match(r'\s*<IP(Rule|Policy) ', line):
