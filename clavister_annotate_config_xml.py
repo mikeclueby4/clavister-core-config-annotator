@@ -8,6 +8,7 @@ import datetime
 import base64
 import binascii
 import textwrap
+import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
@@ -706,8 +707,30 @@ def DumpPrivateKey(out, pemder, line, anonymized=False):
         out("DSA private key, %u bits" % (key.key_size))
 
     elif isinstance(key, ec.EllipticCurvePrivateKey):
-        out("EC private key, %u bits" % (key.key_size))
-        out("Curve name: " % (key.name))
+        curvename = key.curve.name
+        aka = {   # from https://tools.ietf.org/html/rfc8422#appendix-A
+            "sect163k1" : "NIST K-163",
+            "sect163r2" : "NIST B-163",
+            "sect233k1" : "NIST K-233",
+            "sect233r1" : "NIST B-233",
+            "sect283k1" : "NIST K-283",
+            "sect283r1" : "NIST B-283",
+            "sect409k1" : "NIST K-409",
+            "sect409r1" : "NIST B-409",
+            "sect571k1" : "NIST K-571",
+            "sect571r1" : "NIST B-571",
+            "secp192r1" : "NIST P-192",
+            "secp224r1" : "NIST P-224",
+            "secp256r1" : "NIST P-256",
+            "secp384r1" : "NIST P-384",
+            "secp521r1" : "NIST P-521"
+            }
+        curvename += ' aka "' + aka[curvename] + '"'   if curvename in aka else ""
+
+        out("EC private key, %u bits, curve: %s" % (key.key_size, curvename))
+
+        if re.match(r"sec", curvename):
+            out(key.curve.name + " was designed by NIST in FIPS 186-4. Please read https://safecurves.cr.yp.to/")
 
     else:
         notice("I don't know what type of key this is?! Tried RSA,DSA,EC.  : %s" % (repr(key)), line)
@@ -845,18 +868,24 @@ for line in lines:
 
 
     #
-    # Certificate?
+    # Certificate? SSH keys?
     #
+    def outputter(*texts):
+        out(indent + "        <!-- ", *texts, " -->")
+    def unesc(foo):
+        if foo:
+            return html.unescape(foo)
+        return foo
 
     if re.match(r'\s*<Certificate ', line):
-
-        def outputter(*texts):
-            out(indent + "        <!-- ", *texts, " -->")
-
         out(indent + "    <!-- CertificateData ==== -->")
-        cert,anonymized = DumpCertificate(outputter, re_group(r' CertificateData="([^"]+)"', line, 1, None) , shorten(line))
+        cert,anonymized = DumpCertificate(outputter, unesc(re_group(r' CertificateData="([^"]+)"', line, 1, None)) , shorten(line))
         out(indent + "    <!-- PrivateKey ==== -->")
-        DumpPrivateKey(outputter, re_group(r' PrivateKey="([^"]+)"', line, 1, None) , shorten(line), anonymized=True)
+        DumpPrivateKey(outputter, unesc(re_group(r' PrivateKey="([^"]+)"', line, 1, None)) , shorten(line), anonymized=anonymized)
+
+    if re.match(r'\s*<SSHHostKey ', line):
+        out(indent + "    <!-- Key ==== -->")
+        DumpPrivateKey(outputter, unesc(re_group(r' Key="([^"]+)"', line, 1, None)) , shorten(line))
 
 
     #
