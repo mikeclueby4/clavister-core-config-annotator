@@ -466,9 +466,9 @@ def dumpnames(line, recurse=0):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
             elif XMLentity == "ServiceGroup" and paramname=="Members":
                 find = r"<Service"
-            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo"] or \
-                 ( XMLentity == "InterfaceGroup" and paramname=="Members"):
-                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPServer|VLAN|LinkAggregation|L2TPClient) "
+            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface"] \
+                 or ( XMLentity == "InterfaceGroup" and paramname=="Members"):
+                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPv?[23]?Server|VLAN|LinkAggregation|L2TPv?[23]?Client) "
             elif paramname in ["EthernetDevice.0", "EthernetDevice.1", "SyncIface"]:
                 find = r"<EthernetDevice "
             elif paramname=="Key":
