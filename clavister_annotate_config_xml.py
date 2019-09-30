@@ -18,7 +18,7 @@ CURRENT_CORE_VERSION = "12.00.20"
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-MAD-ClvA-20190920-v745.bak-annotated.xml")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-Renningen_Kiga_E10-20190808.bak-annotated.xml")
 
 filename = sys.argv[1]
 
@@ -584,8 +584,8 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
 This may open the certificate up to hash collision attacks!""" % cert.serial_number, line)
     else:
         # This is not a test of GOOD entropy. For all we know, someone is setting 90% of the serial to 01010101... all the time. But it'll catch known-BAD behavior.
-        if num0<26 or num1<26:  # in any decent-entropy PRNG
-            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 26+ of both.
+        if num0<24 or num1<24:  # in any decent-entropy PRNG
+            notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 24+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
                    % (cert.serial_number, num1, num0), line)
 
