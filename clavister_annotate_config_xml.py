@@ -919,6 +919,7 @@ if len(AllNotices)>0:
     out("", stdout=True)
     out("<!-- COPY OF NOTICES FOUND ABOVE: -->", stdout=True)
 
+    NoticesForLine: Dict[str,List[str]] = {}   # line = list of messages
     NoticeCounts: Dict[str,int] = {}
     header = "        NOTICE: "
     indent = "                "
@@ -928,10 +929,16 @@ if len(AllNotices)>0:
         if NoticeCounts[noti.message] > 5:
             continue
 
+        if noti.line not in NoticesForLine:
+            NoticesForLine[noti.line] = []
+        NoticesForLine[noti.line].append(noti.message)
+
+    for line,messages in NoticesForLine.items():
         out("", stdout = True)
         if noti.line:
             out("  " + noti.line, stdout = True)
-        out(header + re.sub(r"\n", "\n"+indent, noti.message), stdout = True)
+        for message in messages:
+            out(header + re.sub(r"\n", "\n"+indent, message), stdout = True)
 
     out("", stdout = True)
     for message,count in NoticeCounts.items():
