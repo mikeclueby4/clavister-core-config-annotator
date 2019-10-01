@@ -931,6 +931,8 @@ for line in lines:
         addfeature("Loopback Interface", shorten(line), subclass)
     if re.match(r'\s*<LinkAggregation ', line):
         addfeature("Link Aggregation", shorten(line), subclass)
+    if re.search(r' AutoSwitchRoute="True"', line):
+        addfeature("Transparent Mode", shorten(line), subclass)
 
     subclass = "Content Inspection"
     if re.match(r'\s*<EmailControlProfile ', line):
@@ -1026,22 +1028,24 @@ if len(AllNotices)>0:
     header = "        NOTICE: "
     indent = "                "
     for noti in AllNotices:
+        # Count repetitions of the _message_, ignore 6+ of it
         NoticeCounts[noti.message] = NoticeCounts.get(noti.message, 0) + 1
-
         if NoticeCounts[noti.message] > 5:
             continue
-
+        # Group all messages for the same line
         if noti.line not in NoticesForLine:
             NoticesForLine[noti.line] = []
         NoticesForLine[noti.line].append(noti.message)
 
+    # Output!
     for line,messages in NoticesForLine.items():
         out("", stdout = True)
         if noti.line:
-            out("  " + noti.line, stdout = True)
+            out("  " + line, stdout = True)
         for message in messages:
             out(header + re.sub(r"\n", "\n"+indent, message), stdout = True)
 
+    # Warn about repeated messages
     out("", stdout = True)
     for message,count in NoticeCounts.items():
         if count>5:
