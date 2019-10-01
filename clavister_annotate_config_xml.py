@@ -139,8 +139,19 @@ def re_group(regex, string, groupnum, defaultvalue):
         return defaultvalue
     return m.group(groupnum)
 
-def shorten(text):
-    return re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
+def shorten(text: str) -> str:
+    ''' Shorten lines HARD, truncate params, remove params .. keep the line under 100 chars'''
+    # shorten params:
+    text = text.strip()
+    text = re.sub(r'="([^"]{30,})"', lambda m: '="' + m.group(1)[0:20] + '..."', text)
+    # shorten entire line
+    if len(text)>100:
+        text = re.sub(r' +[^=]+="[^"]*" *(/?>)', r" ... \1", text)
+        safety=99
+        while len(text)>100 and safety>0:
+            text = re.sub(r' +[^=]+="[^"]*" *(/?>)', r"\1", text)
+            safety-=1
+    return text
 
 
 
