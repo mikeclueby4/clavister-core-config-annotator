@@ -201,13 +201,16 @@ def lzmalen(binarybytes:bytes) -> int:
         {"id":lzma.FILTER_LZMA1}
     ]
     lzc = lzma.LZMACompressor(format=lzma.FORMAT_RAW, filters=my_filters)
-    lzc.compress(b'01')
+
+    lzc.compress(b'01')  # ignore this length
     retlen = len(lzc.compress( binarybytes ))
     retlen += len(lzc.flush())
+
     return retlen
 
-entropy_upperbounds: Dict[int,int] = {}   # e.g. 64 bits = 22 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
-entropy_lowerbounds: Dict[int,int] = {}   # e.g. 64 bits = 17 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
+# expected lower+upper bounds of entropy for a given number of bits. computed as-needed and cached.
+entropy_upperbounds: Dict[int,int] = {}   # e.g. 64 bits = 23 bytes,   128 bits = 39 bytes,  1024 bits = 218 bytes,  ....
+entropy_lowerbounds: Dict[int,int] = {}   # e.g. 64 bits = 17 bytes,   128 bits = 32 bytes,  1024 bits = 203 bytes,  ....
 
 def entropychecker(
     binarytext: Union[bytes,str],   # "0b11110010001010100100001001"
@@ -216,11 +219,12 @@ def entropychecker(
     """
     Verify that the given binary string compresses down to an expected length
 
-    return result>=entropy_lowerbounds[numbits]*0.95,
-            numbits,  # rounded up to byte-size
-            result,   # length of compression result
-            entropy_lowerbounds[numbits],    # 10th percentile lowest seen for random data, i.e. "bad luck"
-            entropy_upperbounds[numbits]     # highest seen for random data, i.e. "uncompressable"
+    Returns:
+        result ≥= entropy_lowerbounds[numbits]*0.95,  # Bool
+        numbits,                         # rounded up to byte-size
+        result,                          # length of compression result
+        entropy_lowerbounds[numbits],    # 10th percentile lowest seen for random data, i.e. "bad luck"
+        entropy_upperbounds[numbits]     # highest seen for random data, i.e. "uncompressable"
     """
     if isinstance(binarytext, str):
         binarytext = bytes(binarytext, encoding="utf-8")
@@ -245,7 +249,6 @@ def entropychecker(
             result, \
             entropy_lowerbounds[numbits], \
             entropy_upperbounds[numbits] \
-
 
 
 #
