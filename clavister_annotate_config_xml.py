@@ -78,22 +78,29 @@ def addfeature(key, desc = None, subclass = None):
 filename = re.sub(r'-annotated\.xml$', '', filename)   # for notepad++ "Run" on already-annotated file
 print(sys.argv[0] + ": processing " + filename)
 
-f : TextIO
+f : TextIO = None
 
-if re.search(r'\.bak', filename.lower()):
-    with open(filename, "rb") as raw:
-        rawdata = raw.read()
-        assert rawdata[0:4]!="FPKG", ".bak file started with '" + str(rawdata[0:4]) + "', expected 'FPKG'"
-        firstXmlLinePos = rawdata.find(b"<SecurityGateway")
-        assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
-        lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
-        assert lastXmlLinePos>=0, "Could not find '</SecurityGateway>' in file"
-        # f = io.StringIO(str(rawdata[firstXmlLinePos:(lastXmlLinePos+18)]), newline="\n")
-        f = io.StringIO(newline=None)
-        f.write(rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8"))
-        f.seek(0)
-else:
-    f = open(filename)
+try:
+    pass
+    if re.search(r'\.bak', filename.lower()):
+        with open(filename, "rb") as raw:
+            rawdata = raw.read()
+            assert rawdata[0:4]!="FPKG", ".bak file started with '" + str(rawdata[0:4]) + "', expected 'FPKG'"
+            firstXmlLinePos = rawdata.find(b"<SecurityGateway")
+            assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
+            lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
+            assert lastXmlLinePos>=0, "Could not find '</SecurityGateway>' in file"
+            # f = io.StringIO(str(rawdata[firstXmlLinePos:(lastXmlLinePos+18)]), newline="\n")
+            f = io.StringIO(newline=None)
+            f.write(rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8"))
+            f.seek(0)
+    else:
+        f = open(filename)
+except OSError as e:
+    sys.exit(sys.argv[0] + ": " + str(e))
+except FileNotFoundError as e:
+    sys.exit(sys.argv[0] + ": " + str(e))
+
 
 
 #
