@@ -18,8 +18,8 @@ CURRENT_CORE_VERSION = "12.00.20"
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
-# sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-Renningen_Kiga_E10-20190808.bak-annotated.xml")
+sys.argv.append(r"C:\temp\TIC-27950\anonymous_config-FW-03-iDirect-20190807-v8598.bak")
+# sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-Renningen_Kiga_E10-20190808.bak-annotated.xml")
 
 filename = sys.argv[1]
 
@@ -46,7 +46,7 @@ AllNotices : List[Notice] = []
 
 
 #
-# Features
+# Track Major Features 
 #
 
 
@@ -817,7 +817,7 @@ for line in lines:
 
     def expectmatch(ifmatch, expectmatch):
         if re.search(ifmatch, line) and not re.search(expectmatch, line):
-            notice("Expected [ %s ] to have [ %s ] - it did not!", line)
+            notice("Expected [ {} ] to have [ {} ] - it did not!".format(ifmatch, expectmatch), line)
 
     # Not latest firmware
     if re.match(r'\s*<SecurityGateway ', line):
