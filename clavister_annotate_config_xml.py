@@ -293,26 +293,27 @@ while True:
         AllSettings.append(line)
 
     # Scrape IPRuleSet
-    m = re.search(r"""(<IPRuleSet .*Names="([^"]+)".*>)""", line)
+    m = re.search(r"""(<IPRuleSet .*Name="([^"]+)".*>)""", line)
     if m:
         rslines = []
         rsname = m.group(2)
         lines.append("        <!-- (will be displayed inline, below) -->")
 
-        while not re.search(r"""</IPRuleSet>""", line):
-            rslines.append(line)
-            line = f.readline()
-            line = re.sub(r'\s+$', "", line)
-            assert line, "ERROR: missing </IPRuleSet>, hit end-of-file looking for it!"
+        __line = line
+        while not re.search(r"""</IPRuleSet>""", __line):
+            rslines.append(__line)
+            __line = f.readline()
+            __line = re.sub(r'\s+$', "", __line)
+            assert __line, "ERROR: missing </IPRuleSet>, hit end-of-file looking for it!"
 
-        lines.append(line)
-        rslines.append(line + "  <!-- " + rsname + " -->")
+        lines.append(__line)
+        rslines.append(__line + "  <!-- " + rsname + " -->")
 
         RuleSets[rsname] = rslines
 
 
     # Insert IPRuleSet after GotoRule (first time used, only)
-    m=re.search(r' RuleSets="([^"]+)', line)
+    m=re.search(r' RuleSet="([^"]+)', line)
     if m:
         rsname = m.group(1)
         if not rsname in RuleSets:
@@ -328,7 +329,7 @@ while True:
 
 
     # Scrape names
-    m = re.match(r"""\s+(<.* Name="([^"]+)" .*>)""", line)
+    m = re.match(r"""\s+(<.* Name="([^"]+)".*>)""", line)
     if m:
         text = m.group(1)
         n = m.group(2)
