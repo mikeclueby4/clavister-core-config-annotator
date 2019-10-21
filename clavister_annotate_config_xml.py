@@ -189,10 +189,10 @@ def dhdesc(group, line):
 
     if not igroup or igroup not in dhdescs:
         return "UNKNOWN DIFFIE-HELLMAN GROUP " + group + " ?!"
-    if igroup>=1 and igroup<5:
-        notice("Diffie-Hellman group " + group + " is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
+    elif igroup>=1 and igroup<5:
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
     elif igroup>=16 and igroup<=18:
-        notice("Diffie-Hellman group " + group + " is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
     return dhdescs[igroup]
 
 
