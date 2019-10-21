@@ -19,7 +19,7 @@ CURRENT_CORE_VERSION = "12.00.20"
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-Renningen_Kiga_E10-20190808.bak-annotated.xml")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
 
 filename = sys.argv[1]
 
@@ -78,7 +78,7 @@ def addfeature(key, desc = None, subclass = None):
 filename = re.sub(r'-annotated\.xml$', '', filename)   # for notepad++ "Run" on already-annotated file
 print(sys.argv[0] + ": processing " + filename)
 
-f : TextIO = None
+f : TextIO
 
 try:
     pass
@@ -96,9 +96,9 @@ try:
             f.seek(0)
     else:
         f = open(filename)
-except OSError as e:
-    sys.exit(sys.argv[0] + ": " + str(e))
 except FileNotFoundError as e:
+    sys.exit(sys.argv[0] + ": " + str(e))
+except OSError as e:
     sys.exit(sys.argv[0] + ": " + str(e))
 
 
@@ -353,7 +353,7 @@ while True:
             text = re.sub(r' HAPCI[A-Za-z]+="[^"]+"', '', text)
             text = re.sub(r' SNMPIndex="[^"]+"', '', text)
             text = re.sub(r' NOCHB="False"', '', text)
-            text = re.sub(r' Name="[^"]+"', '', text)
+            text = re.sub(r' Name="[^"]+"', ' ', text)  # extra space because otherwise <IPRuleSet Name="foo"> becomes <IPRuleSet> which doesn't match r"<IPRuleset "
             text = re.sub(r'(<IP[46]Address )Address=', r'\1', text)
             text = re.sub(r' (Inherited|readOnly)="True"', '', text)
 
@@ -449,7 +449,7 @@ def dumpnames(line, recurse=0):
 
             # Map parameter name to what XML entity/ies we should be looking for
             find = r"<" + paramname  # default: if it's <xmlentity Foo="bar">, then look for a "<Foo" that had Name="bar"
-            if XMLentity=="WebProfile" and paramname=="HTTPBanners":
+            if XMLentity in ["WebProfile", "ALG_HTTP"] and paramname=="HTTPBanners":
                 find = r"<HTTPALGBanners "
             elif paramname=="HTTPBanners":
                 find = r"<HTTPAuthBanners "
@@ -469,6 +469,8 @@ def dumpnames(line, recurse=0):
                 find = r"<FileControlPolicy "
             elif paramname == "Web_Policy":
                 find = r"<WebProfile "
+            elif paramname == "DNS_Policy":
+                find = r"<DNSProfile "
             elif paramname in ["IPAddress", "Network", "Broadcast", "PrivateIP", "Gateway", "SourceNetwork",
                                "DestinationNetwork", "OriginatorIP", "TerminatorIP", "ServerIP", "SourceIP",
                                "SLBAddresses",
@@ -479,7 +481,10 @@ def dumpnames(line, recurse=0):
                                "IPPool",
                                "Addresses",
                                "InControlIP",
-                               "DefaultGateway", "DNS1", "DNS2", "Host",
+                               "DefaultGateway", "DNS1", "DNS2",  "NBNS1", "NBNS2", # DHCPServer
+                               "Host",
+                               "MulticastGroup", "MulticastSource",  # IGMPRule
+                               "OuterIP", "InnerIP", "PrimaryDNS", "ClientRoutes", # SSLVPNInterface
                                "TargetDHCPServer", "TargetDHCPServer2",
                                "DHCPDNS1", "DHCPDNS2",  # dhcp-enabled interfaces
                                "DNSServer1", "DNSServer2", "DNSServer3",
@@ -488,7 +493,7 @@ def dumpnames(line, recurse=0):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
             elif XMLentity == "ServiceGroup" and paramname=="Members":
                 find = r"<Service"
-            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface"] \
+            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface", "RelayInterface"] \
                  or ( XMLentity == "InterfaceGroup" and paramname=="Members"):
                 find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPv?[23]?Server|VLAN|LinkAggregation|L2TPv?[23]?Client) "
             elif paramname in ["EthernetDevice.0", "EthernetDevice.1", "SyncIface"]:
@@ -517,6 +522,10 @@ def dumpnames(line, recurse=0):
                 find = r"<ConfigModePool "
             elif paramname=="RootCertificates": # <IPsecTunnel
                 find = r"<Certificate "
+            elif XMLentity=="GotoRule" and paramname=="RuleSet":
+                find = r"<IPRuleSet "
+            elif paramname=="LocalUserDB":
+                find = r"<LocalUserDatabase "
 
             # Find according to type ("find" regex)
             found=0
