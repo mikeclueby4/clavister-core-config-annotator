@@ -12,7 +12,7 @@ import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
-CURRENT_CORE_VERSION = "12.00.20"
+CURRENT_CORE_VERSION = "12.00.21"
 
 #sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
