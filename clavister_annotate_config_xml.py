@@ -835,6 +835,9 @@ for line in lines:
     # WARNINGS
     #
 
+    if re.match(r'\s*<MulticastPolicy ',line) and not re.search(r' RequireIGMP="False"',line):
+        notice("""This has RequireIGMP="True"(default) which usually is unnecessary and may cause glitches with units that don't speak IGMP like they should. Is it really necessary, or should we set  RequireIGMP="False" ?""", line)
+
     def expectmatch(ifmatch, expectmatch):
         if re.search(ifmatch, line) and not re.search(expectmatch, line):
             notice("Expected [ %s ] to have [ %s ] - it did not!", line)
