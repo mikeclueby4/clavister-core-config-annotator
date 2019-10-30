@@ -8,6 +8,7 @@ import datetime
 import base64
 import binascii
 import textwrap
+import defusedxml
 
 #sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190815.bak")
 sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
@@ -30,7 +31,7 @@ AllNotices = []     # raw text lines in order
 # Open input file
 #
 
-filename = re.sub(r'-annotated\.xml$', '', filename)   # for notepad++ "Run" on already-annotated file
+filename = re.sub(r'\.html$', '', filename)   # for notepad++ "Run" on already-annotated file
 print(sys.argv[0] + ": processing " + filename)
 
 if re.search(r'\.bak', filename.lower()):
@@ -41,20 +42,103 @@ if re.search(r'\.bak', filename.lower()):
         assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
         lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
         assert lastXmlLinePos>=0, "Could not find '</SecurityGateway>' in file"
-        # f = io.StringIO(str(rawdata[firstXmlLinePos:(lastXmlLinePos+18)]), newline="\n")
-        f = io.StringIO(newline=None)
-        f.write(rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8"))
-        f.seek(0)
+        wholefiletext = rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8")
 else:
-    f = open(filename)
+    with open(filename) as f:
+        wholefiletext = f.read()
 
+# Nonstandard HTML entities used in Clavister XML. Fix them first.
+wholefiletext = re.sub(r'&num;', "&#35;", wholefiletext, flags=re.IGNORECASE)
+
+import defusedxml.ElementTree as ET
+try:
+    root = ET.fromstring(wholefiletext, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+except ET.ParseError as e:
+    print("There was an error reading/parsing the XML:")
+    print("    " + str(e))
+    (lineno,column) = e.position
+    print("    (note that 'column' is where the XML entity starts, not where the error is)")
+    print(wholefiletext.splitlines()[lineno-1])
+    os._exit(1)
+
+bytype = {}
+addresses = {}
+interfaces = {}
+algs = {}
+services = {}
+settings = {}
+logreceivers = {}
+psks = {}
+certificates = {}
+routingtables = {}
+others = {  # stuff we don't keep track of
+    "EmailControlProfile": True,
+    "WebProfile": True,
+    "DNSProfile": True,
+    "HTTPALGBanners": True,
+    "HTTPAuthBanners": True,
+    "GeolocationFilter": True,
+    "ScheduleProfile": True,
+    "AdvancedScheduleProfile": True,
+    "SSHHostKey": True,
+    "IKEAlgorithms": True,
+    "IPsecAlgorithms": True,
+    "LocalUserDatabase": True,
+    "IGMPSetting": True,
+}
+
+def isearch(regex, text):
+    return re.search(regex, text, flags=re.IGNORECASE)
+
+def fly(parent, parentname):
+    for elem in parent:
+        if not elem.tag in bytype:
+            bytype[elem.tag] = []
+        bytype[elem.tag].append(elem)
+
+        if isearch(r'Folder$', elem.tag) :
+            fly(elem, parentname + elem.get('Name') + "/")
+
+        elif elem.tag == "RoutingTable" :
+            routingtables[elem.tag] = elem
+            fly(elem, parentname + elem.get('Name') + "/")
+
+        elif isearch(r'Address$', elem.tag ) or \
+                isearch(r'^(IP[4-6])Group', elem.tag) or \
+                elem.tag in ["FQDNGroup"]:
+            addresses[ parentname + elem.get('Name') ] = elem
+        elif isearch(r'Interface$', elem.tag ) or elem.tag in ["VLAN", "InterfaceGroup"]:
+            interfaces[ parentname + elem.get('Name') ] = elem
+        elif isearch(r'^Service', elem.tag ):
+            services[ parentname + elem.get('Name') ] = elem
+        elif isearch(r'^ALG_', elem.tag ):
+            algs[ parentname + elem.get('Name') ] = elem
+        elif isearch(r'^LogReceiver', elem.tag):
+            logreceivers[ parentname + elem.get('Name') ] = elem
+        elif elem.tag in ["PSK"]:
+            psks[ parentname + elem.get('Name') ] = elem
+        elif elem.tag in ["Certificate"]:
+            certificates[ parentname + elem.get('Name') ] = elem
+        elif isearch(r'Settings$', elem.tag ) or \
+                isearch(r'^RemoteMgmt', elem.tag) or \
+                elem.tag in ["DNS", "DateTime", "UpdateCenter", "HWM", "COMPortDevice"]:
+            settings[elem.tag] = elem
+        else:
+            if elem.tag not in others:
+                others[elem.tag] = elem
+                print(f"What is a <{elem.tag}>?")
+
+
+fly(root, "")
 
 #
 # Open outputfile and define out()
 #
 
-outfilename = filename + "-annotated.xml"
+outfilename = filename + ".html"
 outfile = open(outfilename, "wt", encoding="utf-8")
+
+
 
 
 def out(*texts, stdout = False):
@@ -326,8 +410,11 @@ def DumpPrivateKey(prefix, pemder):
 out("")
 out("<!-- ALL SETTINGS BELOW - USUALLY ONLY ONES CHANGED FROM DEFAULTS -->")
 out("")
-for txt in AllSettings:
-    out("   " + txt)
+for name,elem in settings.items():
+    elem.tail = None
+    elem.text = None
+    out("   ", ET.tostring(elem, encoding="unicode"))
+    out("")
 out("")
 
 
