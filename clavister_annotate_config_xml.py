@@ -835,12 +835,21 @@ for line in lines:
     # WARNINGS
     #
 
-    if re.match(r'\s*<MulticastPolicy ',line) and not re.search(r' RequireIGMP="False"',line):
-        notice("""This has RequireIGMP="True"(default) which usually is unnecessary and may cause glitches with units that don't speak IGMP like they should. Is it really necessary, or should we set  RequireIGMP="False" ?""", line)
-
     def expectmatch(ifmatch, expectmatch):
         if re.search(ifmatch, line) and not re.search(expectmatch, line):
-            notice("Expected [ %s ] to have [ %s ] - it did not!", line)
+            notice(f"Expected [ {ifmatch} ] to have [ {expectmatch} ] - it did not!", line)
+
+    # MulticastPolicy
+    if re.match(r'\s*<MulticastPolicy ',line):
+        if not re.search(r' RequireIGMP="False"',line):
+            notice("""This has RequireIGMP="True"(default) which usually is unnecessary and may cause glitches with units that don't speak IGMP like they should. Is it really necessary, or should we set  RequireIGMP="False" ?   (IGMP is normally only useful for high-bandwidth streams.)""", line)
+
+        destif = re_group(r'DestinationInterface="([^"]+)"', line, 1, "???")
+        if not destif in ["core","any"]:
+            notice(f"""Expected DestinationInterface to be "core" or "any" but it was "{destif}" - will this ever trigger? (It might if we're not dealing with actual multicast IPs but ... eh)""", line)
+
+
+
 
     # Not latest firmware
     if re.match(r'\s*<SecurityGateway ', line):
