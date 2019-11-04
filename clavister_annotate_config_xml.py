@@ -970,6 +970,8 @@ for line in lines:
         addfeature("Link Aggregation", shorten(line), subclass)
     if re.search(r' AutoSwitchRoute="True"', line):
         addfeature("Transparent Mode", shorten(line), subclass)
+    if re.match(r'\s*<OSPFProcess ', line):
+        addfeature("OSPF", shorten(line), subclass)
 
     subclass = "Content Inspection"
     if re.match(r'\s*<EmailControlProfile ', line):
