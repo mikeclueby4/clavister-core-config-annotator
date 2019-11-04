@@ -14,13 +14,13 @@ from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
 CURRENT_CORE_VERSION = "12.00.21"
 
-sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
+# sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
 # sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
-# sys.argv.append(r"C:\temp\igas.xml")
+sys.argv.append(r"C:\temp\tic-27750\config-igas-fw01b-20190715.bak")
 
 filename = sys.argv[1]
 
@@ -857,6 +857,13 @@ for line in lines:
         if not destif in ["core","any"]:
             notice(f"""Expected DestinationInterface to be "core" or "any" but it was "{destif}" - will this ever trigger? (It might if we're not dealing with actual multicast IPs but ... eh)""", line)
 
+    # DynamicRoutingRule DestinationNetworkIn="all-nets" or "0.0.0.0/0"  = no import filtering = somewhat dangerous
+    if re.match(r'\s*<DynamicRoutingRule .*DestinationNetworkIn=', line):
+        filter = re_group(r'DestinationNetworkIn="([^"]+)"', line, 1, "???")
+        if "all-nets" in filter or "0.0.0.0/0" in filter:
+            notice(f"""No filtering (all-nets or 0.0.0.0/0) on imported networks - that's usually mildly dangerous; an attacker can re-route sensitive addresses!""", line)
+            if "HA" in AllFeatures and len([line for line in lines if "<OSPFProcess " in line]) >= 2:
+                notice(f"""... and HA is enabled and there's 2+ OSPF processes, so you may be in danger of triggering COP-22321""", line)
 
 
 
