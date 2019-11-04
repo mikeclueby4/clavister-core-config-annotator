@@ -409,7 +409,7 @@ def dumpnames(line, recurse=0):
         if XMLentity=="User" and paramname=="Groups":
             continue
 
-        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering", "UserAuthGroups", "SNMPGetCommunity"]:
+        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering", "UserAuthGroups", "SNMPGetCommunity", "DebugDDesc", "TunnelProtocol"]:
             continue
 
         # stuff we're not interested in showing _WHEN_ _RECURSING_
@@ -490,6 +490,8 @@ def dumpnames(line, recurse=0):
                                "DHCPDNS1", "DHCPDNS2",  # dhcp-enabled interfaces
                                "DNSServer1", "DNSServer2", "DNSServer3",
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
+                 ( XMLentity in ["OSPFProcess"] and paramname=="RouterID" ) or \
+                 ( XMLentity in ["DynamicRoutingRule"] and paramname=="DestinationNetworkIn" ) or \
                  ( XMLentity in ["IP4Group","IP6Group"] and paramname=="Members" ):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
             elif XMLentity == "ServiceGroup" and paramname=="Members":
@@ -521,12 +523,14 @@ def dumpnames(line, recurse=0):
                 find = r"<SSHClientKey "
             elif paramname=="IKEConfigModePool":  # <IPsecTunnel
                 find = r"<ConfigModePool "
-            elif paramname=="RootCertificates": # <IPsecTunnel
+            elif paramname in ["RootCertificates", "GatewayCertificate"]: # <IPsecTunnel
                 find = r"<Certificate "
             elif XMLentity=="GotoRule" and paramname=="RuleSet":
                 find = r"<IPRuleSet "
             elif paramname=="LocalUserDB":
                 find = r"<LocalUserDatabase "
+            elif paramname=="RemoteID":
+                find = r"<IDList "
 
             # Find according to type ("find" regex)
             found=0
