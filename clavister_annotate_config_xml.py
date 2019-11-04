@@ -14,12 +14,13 @@ from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
 CURRENT_CORE_VERSION = "12.00.21"
 
-#sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
+sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
+# sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
+# sys.argv.append(r"C:\temp\igas.xml")
 
 filename = sys.argv[1]
 
@@ -613,41 +614,45 @@ def DumpCertificate(out : Callable,
 
     if not has_cryptography():
         return None, False
+
     try:
         cert = x509.load_der_x509_certificate(der, cryptography_hazmat_backends_default_backend())
     except ValueError as e:
         out(str(e), " - data was ", repr(der[0:80]), " (%u bytes)" % len(der))
         return None, False
 
+    try:
+        pubkey = cert.public_key()
+    except ValueError as e:
+        out("Error parsing certificate: tried to get public key and got: ", str(e))
+        return None, False
 
-    pubkey = cert.public_key()
-    anonymized = ("CN=Anonymous" in str(cert.subject)) and (pubkey.key_size==511)
+    # custom repr() implementation incl error handling
+
+    cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
+
+    def myrepr(obj, attr):   # repr() and remove some junk we don't need to see 99% of the time
+        try:
+            txt = repr(getattr(obj, attr))
+            if re.match(r"^<KeyUsage", txt):
+                txt = re.sub(r"[a-zA-Z0-9_]+=(False|None),*\s*", "", txt)
+            txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # always remove outermost <Foo(...)>
+            txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # and again
+            txt = re.sub(r"<UniformResourceIdentifier\(value=('http[^']*')\)>", r"\1", txt)
+            txt = re.sub(r"\(value=('[^']*')\)", r" \1", txt)    # (value='foo') -> ('foo')
+            txt = re.sub(r"<ObjectIdentifier\((oid=[^)]+)\)>", r"(\1)", txt)  # so this won't hit if obj is an oid
+        except ValueError as e:
+            return "<" + attr + ": Error: " + str(e) + ">"
+        return txt
+
+    anonymized = ("CN=Anonymous" in myrepr(cert, "subject")) and (pubkey.key_size==511)
     if anonymized:
         out("This certificate has been replaced with an anonymized dummy certificate. Not dumping contents.")
         return cert, True
 
-    # custom repr()
-
-    cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
-
-    def myrepr(obj):   # repr() and remove some junk we don't need to see 99% of the time
-        txt = repr(obj)
-        if re.match(r"^<KeyUsage", txt):
-            txt = re.sub(r"[a-zA-Z0-9_]+=(False|None),*\s*", "", txt)
-        txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # always remove outermost <Foo(...)>
-        txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # and again
-        txt = re.sub(r"<UniformResourceIdentifier\(value=('http[^']*')\)>", r"\1", txt)
-        txt = re.sub(r"\(value=('[^']*')\)", r" \1", txt)    # (value='foo') -> ('foo')
-        txt = re.sub(r"<ObjectIdentifier\((oid=[^)]+)\)>", r"(\1)", txt)  # so this won't hit if obj is an oid
-
-        return txt
-
-
-    out("Subject: " + myrepr(cert.subject))
+    out("Subject: " + myrepr(cert, "subject"))
 
     out("Public key size: %u bits" % pubkey.key_size)
-
-
 
     if pubkey.key_size>3100:
         notice("""Key size %u TOO LARGE. You never need more than 3072 bits. This will cause major CPU hits if computed often.
@@ -666,7 +671,7 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
     out("Serial: %u (0x%x - %u ones, %u zeroes%s)" %
             (cert.serial_number, cert.serial_number, num0, num1,
             " - good!" if num0+num1>=63 and num0>=28 and num1>=28 else ""\
-       )    )
+    )    )
     if num0+num1 < 63:
         notice("""Serial number 0x%x is shorter than 63 bits, so cannot possibly contain 63+ bits of entropy.
 This may open the certificate up to hash collision attacks!""" % cert.serial_number, line)
@@ -675,7 +680,7 @@ This may open the certificate up to hash collision attacks!""" % cert.serial_num
         if num0<24 or num1<24:  # in any decent-entropy PRNG
             notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 24+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
-                   % (cert.serial_number, num1, num0), line)
+                % (cert.serial_number, num1, num0), line)
 
     out("Validity (UTC): ", cert.not_valid_before.strftime("%Y-%m-%d %H:%M"), " -- ", cert.not_valid_after.strftime("%Y-%m-%d %H:%M") )
     if cert.not_valid_before > datetime.datetime.utcnow():
@@ -685,21 +690,21 @@ This smells like bad entropy and may open the certificate up to hash collision a
     elif datetime.datetime.utcnow() + datetime.timedelta(days=14) > cert.not_valid_after:
         notice("Certificate expires soon: " + cert.not_valid_after.strftime("%Y-%m-%d %H:%M"), line)
 
-    out("Issuer: ", myrepr(cert.issuer))
+    out("Issuer: ", myrepr(cert, "issuer"))
     # not needed, part of signature algorithm out("Signature hash algorithm: ", str(cert.signature_hash_algorithm))
-    out("Signature algorithm: ", myrepr(cert.signature_algorithm_oid))
+    out("Signature algorithm: ", myrepr(cert, "signature_algorithm_oid"))
 
     from cryptography.x509.oid import _OID_NAMES
 
     for ext in cert.extensions:
         if ext.oid in _OID_NAMES:
-            out(_OID_NAMES[ext.oid],": oid=",ext.oid.dotted_string.strip(), ext.critical and " (CRITICAL) " or " () ", myrepr(ext.value))
+            out(_OID_NAMES[ext.oid],": oid=",ext.oid.dotted_string.strip(), ext.critical and " (CRITICAL) " or " () ", myrepr(ext, "value"))
         else:
-            out("Extension: ", myrepr(ext.oid), ext.critical and " (CRITICAL) " or " () ", myrepr(ext.value))
+            out("Extension: ", myrepr(ext, "oid"), ext.critical and " (CRITICAL) " or " () ", myrepr(ext, "value"))
             if ext.critical:
                 notice("Contained CRITICAL extension " + ext.oid.dotted_string.strip() + " which I don't recognize so in THEORY this is an invalid certificate. Maybe. Except x509 and standards so who knows.", line)
 
-    return cert, pubkey.key_size
+    return cert, False
 
 # Private key
 def DumpPrivateKey(out, pemder, line, anonymized=False):
