@@ -12,14 +12,15 @@ import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
-CURRENT_CORE_VERSION = "12.00.20"
+CURRENT_CORE_VERSION = "12.00.21"
 
-#sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
+# sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
 # sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
 
-sys.argv.append(r"C:\temp\TIC-27950\anonymous_config-FW-03-iDirect-20190807-v8598.bak")
-# sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-Renningen_Kiga_E10-20190808.bak-annotated.xml")
+# sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
+# sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
+sys.argv.append(r"C:\temp\tic-27750\config-igas-fw01b-20190715.bak")
 
 filename = sys.argv[1]
 
@@ -80,20 +81,27 @@ print(sys.argv[0] + ": processing " + filename)
 
 f : TextIO
 
-if re.search(r'\.bak', filename.lower()):
-    with open(filename, "rb") as raw:
-        rawdata = raw.read()
-        assert rawdata[0:4]!="FPKG", ".bak file started with '" + str(rawdata[0:4]) + "', expected 'FPKG'"
-        firstXmlLinePos = rawdata.find(b"<SecurityGateway")
-        assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
-        lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
-        assert lastXmlLinePos>=0, "Could not find '</SecurityGateway>' in file"
-        # f = io.StringIO(str(rawdata[firstXmlLinePos:(lastXmlLinePos+18)]), newline="\n")
-        f = io.StringIO(newline=None)
-        f.write(rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8"))
-        f.seek(0)
-else:
-    f = open(filename)
+try:
+    pass
+    if re.search(r'\.bak', filename.lower()):
+        with open(filename, "rb") as raw:
+            rawdata = raw.read()
+            assert rawdata[0:4]!="FPKG", ".bak file started with '" + str(rawdata[0:4]) + "', expected 'FPKG'"
+            firstXmlLinePos = rawdata.find(b"<SecurityGateway")
+            assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
+            lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
+            assert lastXmlLinePos>=0, "Could not find '</SecurityGateway>' in file"
+            # f = io.StringIO(str(rawdata[firstXmlLinePos:(lastXmlLinePos+18)]), newline="\n")
+            f = io.StringIO(newline=None)
+            f.write(rawdata[firstXmlLinePos:(lastXmlLinePos+18)].decode("utf-8"))
+            f.seek(0)
+    else:
+        f = open(filename)
+except FileNotFoundError as e:
+    sys.exit(sys.argv[0] + ": " + str(e))
+except OSError as e:
+    sys.exit(sys.argv[0] + ": " + str(e))
+
 
 
 #
@@ -182,10 +190,10 @@ def dhdesc(group, line):
 
     if not igroup or igroup not in dhdescs:
         return "UNKNOWN DIFFIE-HELLMAN GROUP " + group + " ?!"
-    if igroup>=1 and igroup<5:
-        notice("Diffie-Hellman group " + group + " is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
+    elif igroup>=1 and igroup<5:
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
     elif igroup>=16 and igroup<=18:
-        notice("Diffie-Hellman group " + group + " is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
     return dhdescs[igroup]
 
 
@@ -201,13 +209,16 @@ def lzmalen(binarybytes:bytes) -> int:
         {"id":lzma.FILTER_LZMA1}
     ]
     lzc = lzma.LZMACompressor(format=lzma.FORMAT_RAW, filters=my_filters)
-    lzc.compress(b'01')
+
+    lzc.compress(b'01')  # ignore this length
     retlen = len(lzc.compress( binarybytes ))
     retlen += len(lzc.flush())
+
     return retlen
 
-entropy_upperbounds: Dict[int,int] = {}   # e.g. 64 bits = 22 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
-entropy_lowerbounds: Dict[int,int] = {}   # e.g. 64 bits = 17 bytes,   128 bits = 39 bytes,  1024 bits = 215 bytes,  ....
+# expected lower+upper bounds of entropy for a given number of bits. computed as-needed and cached.
+entropy_upperbounds: Dict[int,int] = {}   # e.g. 64 bits = 23 bytes,   128 bits = 39 bytes,  1024 bits = 218 bytes,  ....
+entropy_lowerbounds: Dict[int,int] = {}   # e.g. 64 bits = 17 bytes,   128 bits = 32 bytes,  1024 bits = 203 bytes,  ....
 
 def entropychecker(
     binarytext: Union[bytes,str],   # "0b11110010001010100100001001"
@@ -216,11 +227,12 @@ def entropychecker(
     """
     Verify that the given binary string compresses down to an expected length
 
-    return result>=entropy_lowerbounds[numbits]*0.95,
-            numbits,  # rounded up to byte-size
-            result,   # length of compression result
-            entropy_lowerbounds[numbits],    # 10th percentile lowest seen for random data, i.e. "bad luck"
-            entropy_upperbounds[numbits]     # highest seen for random data, i.e. "uncompressable"
+    Returns:
+        result ≥= entropy_lowerbounds[numbits]*0.95,  # Bool
+        numbits,                         # rounded up to byte-size
+        result,                          # length of compression result
+        entropy_lowerbounds[numbits],    # 10th percentile lowest seen for random data, i.e. "bad luck"
+        entropy_upperbounds[numbits]     # highest seen for random data, i.e. "uncompressable"
     """
     if isinstance(binarytext, str):
         binarytext = bytes(binarytext, encoding="utf-8")
@@ -245,7 +257,6 @@ def entropychecker(
             result, \
             entropy_lowerbounds[numbits], \
             entropy_upperbounds[numbits] \
-
 
 
 #
@@ -283,26 +294,27 @@ while True:
         AllSettings.append(line)
 
     # Scrape IPRuleSet
-    m = re.search(r"""(<IPRuleSet .*Names="([^"]+)".*>)""", line)
+    m = re.search(r"""(<IPRuleSet .*Name="([^"]+)".*>)""", line)
     if m:
         rslines = []
         rsname = m.group(2)
         lines.append("        <!-- (will be displayed inline, below) -->")
 
-        while not re.search(r"""</IPRuleSet>""", line):
-            rslines.append(line)
-            line = f.readline()
-            line = re.sub(r'\s+$', "", line)
-            assert line, "ERROR: missing </IPRuleSet>, hit end-of-file looking for it!"
+        __line = line
+        while not re.search(r"""</IPRuleSet>""", __line):
+            rslines.append(__line)
+            __line = f.readline()
+            __line = re.sub(r'\s+$', "", __line)
+            assert __line, "ERROR: missing </IPRuleSet>, hit end-of-file looking for it!"
 
-        lines.append(line)
-        rslines.append(line + "  <!-- " + rsname + " -->")
+        lines.append(__line)
+        rslines.append(__line + "  <!-- " + rsname + " -->")
 
         RuleSets[rsname] = rslines
 
 
     # Insert IPRuleSet after GotoRule (first time used, only)
-    m=re.search(r' RuleSets="([^"]+)', line)
+    m=re.search(r' RuleSet="([^"]+)', line)
     if m:
         rsname = m.group(1)
         if not rsname in RuleSets:
@@ -318,7 +330,7 @@ while True:
 
 
     # Scrape names
-    m = re.match(r"""\s+(<.* Name="([^"]+)" .*>)""", line)
+    m = re.match(r"""\s+(<.* Name="([^"]+)".*>)""", line)
     if m:
         text = m.group(1)
         n = m.group(2)
@@ -342,7 +354,7 @@ while True:
             text = re.sub(r' HAPCI[A-Za-z]+="[^"]+"', '', text)
             text = re.sub(r' SNMPIndex="[^"]+"', '', text)
             text = re.sub(r' NOCHB="False"', '', text)
-            text = re.sub(r' Name="[^"]+"', '', text)
+            text = re.sub(r' Name="[^"]+"', ' ', text)  # extra space because otherwise <IPRuleSet Name="foo"> becomes <IPRuleSet> which doesn't match r"<IPRuleset "
             text = re.sub(r'(<IP[46]Address )Address=', r'\1', text)
             text = re.sub(r' (Inherited|readOnly)="True"', '', text)
 
@@ -397,7 +409,7 @@ def dumpnames(line, recurse=0):
         if XMLentity=="User" and paramname=="Groups":
             continue
 
-        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering", "UserAuthGroups", "SNMPGetCommunity"]:
+        if paramname in ["Name", "Description", "Comments", "Comment", "CommentGroup", "Description", "readOnly", "EMIName", "Ordering", "UserAuthGroups", "SNMPGetCommunity", "DebugDDesc", "TunnelProtocol"]:
             continue
 
         # stuff we're not interested in showing _WHEN_ _RECURSING_
@@ -438,7 +450,7 @@ def dumpnames(line, recurse=0):
 
             # Map parameter name to what XML entity/ies we should be looking for
             find = r"<" + paramname  # default: if it's <xmlentity Foo="bar">, then look for a "<Foo" that had Name="bar"
-            if XMLentity=="WebProfile" and paramname=="HTTPBanners":
+            if XMLentity in ["WebProfile", "ALG_HTTP"] and paramname=="HTTPBanners":
                 find = r"<HTTPALGBanners "
             elif paramname=="HTTPBanners":
                 find = r"<HTTPAuthBanners "
@@ -458,6 +470,8 @@ def dumpnames(line, recurse=0):
                 find = r"<FileControlPolicy "
             elif paramname == "Web_Policy":
                 find = r"<WebProfile "
+            elif paramname == "DNS_Policy":
+                find = r"<DNSProfile "
             elif paramname in ["IPAddress", "Network", "Broadcast", "PrivateIP", "Gateway", "SourceNetwork",
                                "DestinationNetwork", "OriginatorIP", "TerminatorIP", "ServerIP", "SourceIP",
                                "SLBAddresses",
@@ -468,16 +482,21 @@ def dumpnames(line, recurse=0):
                                "IPPool",
                                "Addresses",
                                "InControlIP",
-                               "DefaultGateway", "DNS1", "DNS2", "Host",
+                               "DefaultGateway", "DNS1", "DNS2",  "NBNS1", "NBNS2", # DHCPServer
+                               "Host",
+                               "MulticastGroup", "MulticastSource",  # IGMPRule
+                               "OuterIP", "InnerIP", "PrimaryDNS", "ClientRoutes", # SSLVPNInterface
                                "TargetDHCPServer", "TargetDHCPServer2",
                                "DHCPDNS1", "DHCPDNS2",  # dhcp-enabled interfaces
                                "DNSServer1", "DNSServer2", "DNSServer3",
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
+                 ( XMLentity in ["OSPFProcess"] and paramname=="RouterID" ) or \
+                 ( XMLentity in ["DynamicRoutingRule"] and paramname=="DestinationNetworkIn" ) or \
                  ( XMLentity in ["IP4Group","IP6Group"] and paramname=="Members" ):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
             elif XMLentity == "ServiceGroup" and paramname=="Members":
                 find = r"<Service"
-            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface"] \
+            elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface", "RelayInterface"] \
                  or ( XMLentity == "InterfaceGroup" and paramname=="Members"):
                 find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPv?[23]?Server|VLAN|LinkAggregation|L2TPv?[23]?Client) "
             elif paramname in ["EthernetDevice.0", "EthernetDevice.1", "SyncIface"]:
@@ -504,8 +523,14 @@ def dumpnames(line, recurse=0):
                 find = r"<SSHClientKey "
             elif paramname=="IKEConfigModePool":  # <IPsecTunnel
                 find = r"<ConfigModePool "
-            elif paramname=="RootCertificates": # <IPsecTunnel
+            elif paramname in ["RootCertificates", "GatewayCertificate"]: # <IPsecTunnel
                 find = r"<Certificate "
+            elif XMLentity=="GotoRule" and paramname=="RuleSet":
+                find = r"<IPRuleSet "
+            elif paramname=="LocalUserDB":
+                find = r"<LocalUserDatabase "
+            elif paramname=="RemoteID":
+                find = r"<IDList "
 
             # Find according to type ("find" regex)
             found=0
@@ -593,41 +618,45 @@ def DumpCertificate(out : Callable,
 
     if not has_cryptography():
         return None, False
+
     try:
         cert = x509.load_der_x509_certificate(der, cryptography_hazmat_backends_default_backend())
     except ValueError as e:
         out(str(e), " - data was ", repr(der[0:80]), " (%u bytes)" % len(der))
         return None, False
 
+    try:
+        pubkey = cert.public_key()
+    except ValueError as e:
+        out("Error parsing certificate: tried to get public key and got: ", str(e))
+        return None, False
 
-    pubkey = cert.public_key()
-    anonymized = ("CN=Anonymous" in str(cert.subject)) and (pubkey.key_size==511)
+    # custom repr() implementation incl error handling
+
+    cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
+
+    def myrepr(obj, attr):   # repr() and remove some junk we don't need to see 99% of the time
+        try:
+            txt = repr(getattr(obj, attr))
+            if re.match(r"^<KeyUsage", txt):
+                txt = re.sub(r"[a-zA-Z0-9_]+=(False|None),*\s*", "", txt)
+            txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # always remove outermost <Foo(...)>
+            txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # and again
+            txt = re.sub(r"<UniformResourceIdentifier\(value=('http[^']*')\)>", r"\1", txt)
+            txt = re.sub(r"\(value=('[^']*')\)", r" \1", txt)    # (value='foo') -> ('foo')
+            txt = re.sub(r"<ObjectIdentifier\((oid=[^)]+)\)>", r"(\1)", txt)  # so this won't hit if obj is an oid
+        except ValueError as e:
+            return "<" + attr + ": Error: " + str(e) + ">"
+        return txt
+
+    anonymized = ("CN=Anonymous" in myrepr(cert, "subject")) and (pubkey.key_size==511)
     if anonymized:
         out("This certificate has been replaced with an anonymized dummy certificate. Not dumping contents.")
         return cert, True
 
-    # custom repr()
-
-    cryptography.hazmat.backends.openssl.x509._SignedCertificateTimestamp.__repr__ = lambda obj: "<_SignedCertificateTimestamp()>"
-
-    def myrepr(obj):   # repr() and remove some junk we don't need to see 99% of the time
-        txt = repr(obj)
-        if re.match(r"^<KeyUsage", txt):
-            txt = re.sub(r"[a-zA-Z0-9_]+=(False|None),*\s*", "", txt)
-        txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # always remove outermost <Foo(...)>
-        txt = re.sub(r"^<[A-Za-z0-9_]+\((.*)\)>\s*$", r"\1", txt)  # and again
-        txt = re.sub(r"<UniformResourceIdentifier\(value=('http[^']*')\)>", r"\1", txt)
-        txt = re.sub(r"\(value=('[^']*')\)", r" \1", txt)    # (value='foo') -> ('foo')
-        txt = re.sub(r"<ObjectIdentifier\((oid=[^)]+)\)>", r"(\1)", txt)  # so this won't hit if obj is an oid
-
-        return txt
-
-
-    out("Subject: " + myrepr(cert.subject))
+    out("Subject: " + myrepr(cert, "subject"))
 
     out("Public key size: %u bits" % pubkey.key_size)
-
-
 
     if pubkey.key_size>3100:
         notice("""Key size %u TOO LARGE. You never need more than 3072 bits. This will cause major CPU hits if computed often.
@@ -646,7 +675,7 @@ It MAY be okay if external parties cannot trigger it. But anything open to many 
     out("Serial: %u (0x%x - %u ones, %u zeroes%s)" %
             (cert.serial_number, cert.serial_number, num0, num1,
             " - good!" if num0+num1>=63 and num0>=28 and num1>=28 else ""\
-       )    )
+    )    )
     if num0+num1 < 63:
         notice("""Serial number 0x%x is shorter than 63 bits, so cannot possibly contain 63+ bits of entropy.
 This may open the certificate up to hash collision attacks!""" % cert.serial_number, line)
@@ -655,7 +684,7 @@ This may open the certificate up to hash collision attacks!""" % cert.serial_num
         if num0<24 or num1<24:  # in any decent-entropy PRNG
             notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 24+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
-                   % (cert.serial_number, num1, num0), line)
+                % (cert.serial_number, num1, num0), line)
 
     out("Validity (UTC): ", cert.not_valid_before.strftime("%Y-%m-%d %H:%M"), " -- ", cert.not_valid_after.strftime("%Y-%m-%d %H:%M") )
     if cert.not_valid_before > datetime.datetime.utcnow():
@@ -665,21 +694,21 @@ This smells like bad entropy and may open the certificate up to hash collision a
     elif datetime.datetime.utcnow() + datetime.timedelta(days=14) > cert.not_valid_after:
         notice("Certificate expires soon: " + cert.not_valid_after.strftime("%Y-%m-%d %H:%M"), line)
 
-    out("Issuer: ", myrepr(cert.issuer))
+    out("Issuer: ", myrepr(cert, "issuer"))
     # not needed, part of signature algorithm out("Signature hash algorithm: ", str(cert.signature_hash_algorithm))
-    out("Signature algorithm: ", myrepr(cert.signature_algorithm_oid))
+    out("Signature algorithm: ", myrepr(cert, "signature_algorithm_oid"))
 
     from cryptography.x509.oid import _OID_NAMES
 
     for ext in cert.extensions:
         if ext.oid in _OID_NAMES:
-            out(_OID_NAMES[ext.oid],": oid=",ext.oid.dotted_string.strip(), ext.critical and " (CRITICAL) " or " () ", myrepr(ext.value))
+            out(_OID_NAMES[ext.oid],": oid=",ext.oid.dotted_string.strip(), ext.critical and " (CRITICAL) " or " () ", myrepr(ext, "value"))
         else:
-            out("Extension: ", myrepr(ext.oid), ext.critical and " (CRITICAL) " or " () ", myrepr(ext.value))
+            out("Extension: ", myrepr(ext, "oid"), ext.critical and " (CRITICAL) " or " () ", myrepr(ext, "value"))
             if ext.critical:
                 notice("Contained CRITICAL extension " + ext.oid.dotted_string.strip() + " which I don't recognize so in THEORY this is an invalid certificate. Maybe. Except x509 and standards so who knows.", line)
 
-    return cert, pubkey.key_size
+    return cert, False
 
 # Private key
 def DumpPrivateKey(out, pemder, line, anonymized=False):
@@ -817,7 +846,26 @@ for line in lines:
 
     def expectmatch(ifmatch, expectmatch):
         if re.search(ifmatch, line) and not re.search(expectmatch, line):
-            notice("Expected [ {} ] to have [ {} ] - it did not!".format(ifmatch, expectmatch), line)
+            notice(f"Expected [ {ifmatch} ] to have [ {expectmatch} ] - it did not!", line)
+
+    # MulticastPolicy
+    if re.match(r'\s*<MulticastPolicy ',line):
+        if not re.search(r' RequireIGMP="False"',line):
+            notice("""This has RequireIGMP="True"(default) which usually is unnecessary and may cause glitches with units that don't speak IGMP like they should. Is it really necessary, or should we set  RequireIGMP="False" ?   (IGMP is normally only useful for high-bandwidth streams.)""", line)
+
+        destif = re_group(r'DestinationInterface="([^"]+)"', line, 1, "???")
+        if not destif in ["core","any"]:
+            notice(f"""Expected DestinationInterface to be "core" or "any" but it was "{destif}" - will this ever trigger? (It might if we're not dealing with actual multicast IPs but ... eh)""", line)
+
+    # DynamicRoutingRule DestinationNetworkIn="all-nets" or "0.0.0.0/0"  = no import filtering = somewhat dangerous
+    if re.match(r'\s*<DynamicRoutingRule .*DestinationNetworkIn=', line):
+        filter = re_group(r'DestinationNetworkIn="([^"]+)"', line, 1, "???")
+        if "all-nets" in filter or "0.0.0.0/0" in filter:
+            notice(f"""No filtering (all-nets or 0.0.0.0/0) on imported networks - that's usually mildly dangerous; an attacker can re-route sensitive addresses!""", line)
+            if "HA" in AllFeatures and len([line for line in lines if "<OSPFProcess " in line]) >= 2:
+                notice(f"""... and HA is enabled and there's 2+ OSPF processes, so you may be in danger of triggering COP-22321""", line)
+
+
 
     # Not latest firmware
     if re.match(r'\s*<SecurityGateway ', line):
@@ -933,6 +981,8 @@ for line in lines:
         addfeature("Link Aggregation", shorten(line), subclass)
     if re.search(r' AutoSwitchRoute="True"', line):
         addfeature("Transparent Mode", shorten(line), subclass)
+    if re.match(r'\s*<OSPFProcess ', line):
+        addfeature("OSPF", shorten(line), subclass)
 
     subclass = "Content Inspection"
     if re.match(r'\s*<EmailControlProfile ', line):
