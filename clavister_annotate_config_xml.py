@@ -20,7 +20,7 @@ CURRENT_CORE_VERSION = "12.00.21"
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
 # sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
-sys.argv.append(r"C:\temp\tic-27750\config-igas-fw01b-20190715.bak")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-Device-20191202-v031.bak")
 
 filename = sys.argv[1]
 
@@ -47,7 +47,7 @@ AllNotices : List[Notice] = []
 
 
 #
-# Track Major Features 
+# Track Major Features
 #
 
 
@@ -472,6 +472,8 @@ def dumpnames(line, recurse=0):
                 find = r"<WebProfile "
             elif paramname == "DNS_Policy":
                 find = r"<DNSProfile "
+            elif paramname == "MACAddress":
+                find = r"<EthernetAddress "
             elif paramname in ["IPAddress", "Network", "Broadcast", "PrivateIP", "Gateway", "SourceNetwork",
                                "DestinationNetwork", "OriginatorIP", "TerminatorIP", "ServerIP", "SourceIP",
                                "SLBAddresses",
@@ -498,7 +500,7 @@ def dumpnames(line, recurse=0):
                 find = r"<Service"
             elif paramname in ["SourceInterface", "DestinationInterface","Interface","Interfaces","OuterInterface","ProxyARPInterfaces","IncomingInterfaceFilter","LoopTo", "IPsecInterface", "RelayInterface"] \
                  or ( XMLentity == "InterfaceGroup" and paramname=="Members"):
-                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPv?[23]?Server|VLAN|LinkAggregation|L2TPv?[23]?Client) "
+                find = r"<(InterfaceGroup|Ethernet|DefaultInterface|SSLVPNInterface|LoopbackInterface|IPsecTunnel|L2TPv?[23]?Server|VLAN|LinkAggregation|L2TPv?[23]?Client|PPPoETunnel) "
             elif paramname in ["EthernetDevice.0", "EthernetDevice.1", "SyncIface"]:
                 find = r"<EthernetDevice "
             elif paramname=="Key":
@@ -531,6 +533,8 @@ def dumpnames(line, recurse=0):
                 find = r"<LocalUserDatabase "
             elif paramname=="RemoteID":
                 find = r"<IDList "
+            elif paramname=="EthernetInterface":    # PPPoETunnel
+                find = r"<Ethernet "
 
             # Find according to type ("find" regex)
             found=0
