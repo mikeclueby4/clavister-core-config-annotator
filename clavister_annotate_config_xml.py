@@ -20,7 +20,7 @@ CURRENT_CORE_VERSION = "12.00.21"
 
 # sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
 # sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-Device-20191202-v031.bak")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-DC-FRA-CoreFW1-20191115.bak-annotated.xml")
 
 filename = sys.argv[1]
 
@@ -177,10 +177,11 @@ dhdescs = { 1: "768-bit MODP", 2: "1024-bit MODP", 5: "1536-bit MODP", 14: "2048
            21: "521-bit Random ECP",
            }
 
-def dhdesc(group, line):
+def dhdesc(group, line, ispfs=False):
     ''' Return description of given group number. Will also notice() about problems, using the supplied line as context '''
     if re.match(r" *[Nn]one *$", group):
-        notice("Not using DH is not recommended. It MAY be acceptable for PFS, but we recommend at least group 5 and preferably group 14", line)
+        if not ispfs:
+            notice("Not using DH is not recommended. It MAY be acceptable for PFS, but we recommend at least group 5 and preferably group 14", line)
         return "None - don't use Diffie-Hellman key negotiation"
 
     try:
@@ -190,9 +191,14 @@ def dhdesc(group, line):
 
     if not igroup or igroup not in dhdescs:
         return "UNKNOWN DIFFIE-HELLMAN GROUP " + group + " ?!"
-    elif igroup>=1 and igroup<5:
+
+    if (not ispfs) and igroup==1:
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is TRIVIALLY CRACKABLE. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
+    elif (not ispfs) and (1<igroup<5 or igroup==22):
         notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
-    elif igroup>=16 and igroup<=18:
+    elif 23<=igroup<=24:
+        notice("Diffie-Hellman group " + group + " is considered suspect - possibly engineered to be unsafe. For general use we recommend 2048-bit (group 14). See https://tools.ietf.org/html/rfc8247#section-2.4", line)
+    elif 16<=igroup<=18:
         notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is TOO LARGE and will cause excessive CPU load. Use maximum 3072-bit MODP (group 15). For general use we recommend 2048-bit (group 14).", line)
     return dhdescs[igroup]
 
@@ -689,6 +695,7 @@ This may open the certificate up to hash collision attacks!""" % cert.serial_num
             notice("""Serial number 0x%x contains %u ones and %u zeroes. Expected 24+ of both.
 This smells like bad entropy and may open the certificate up to hash collision attacks!""" \
                 % (cert.serial_number, num1, num0), line)
+    # TODO: why aren't we calling entropychecker() ?
 
     out("Validity (UTC): ", cert.not_valid_before.strftime("%Y-%m-%d %H:%M"), " -- ", cert.not_valid_after.strftime("%Y-%m-%d %H:%M") )
     if cert.not_valid_before > datetime.datetime.utcnow():
@@ -905,11 +912,16 @@ for line in lines:
 
     # Nutty DH groups in IPsec
     dhs = re_group(r' DHGroup="([^"]+)"', line, 1, "")
-    for dh in re.findall(r'[^,]+', dhs):
+    for dh in re.findall(r'[^, ]+', dhs):
         out(indent + "        <!-- DHGroup " + dh + " = " + dhdesc(dh, line) + " -->") # will also warn if bad
     dhs = re_group(r' PFSDHGroup="([^"]+)"', line, 1, "")
-    for dh in re.findall(r'[^,]+', dhs):
-        out(indent + "        <!-- PFSDHGroup " + dh + " = " + dhdesc(dh, line) + " -->") # will also warn if bad
+    for dh in re.findall(r'[^, ]+', dhs):
+        out(indent + "        <!-- PFSDHGroup " + dh + " = " + dhdesc(dh, line, ispfs=True) + " -->") # True = don't warn about None/low
+
+    # sweet32 vuln ipsec lifetimes
+    n = re_group(r' IPsecLifeTimeKilobytes="([^"]+)"', line, 1, None)
+    if n and int(n)>1024*1024:
+        notice("IPsecLifeTimeKilobytes > 1M (1GB) opens the connection up to https://sweet32.info/ if non-AES ciphers are used!", line)
 
     # Nutty monitoring
     n = re_group(r' MaxLoss="([0-9]+)"', line, 1, None)
