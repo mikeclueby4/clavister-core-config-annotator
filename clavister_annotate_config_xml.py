@@ -409,6 +409,9 @@ def dumpnames(line, recurse=0):
         if re.match(r'^Service.*',XMLentity) and paramname in ["Protocol"]:
             continue
 
+        if XMLentity=="PPPoETunnel" and paramname in ["ServiceName"]:
+            continue
+
         if XMLentity=="UserAuthRule" and paramname in ["Agent", "AuthSource"]:
             continue
 
@@ -500,6 +503,7 @@ def dumpnames(line, recurse=0):
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
                  ( XMLentity in ["OSPFProcess"] and paramname=="RouterID" ) or \
                  ( XMLentity in ["DynamicRoutingRule"] and paramname=="DestinationNetworkIn" ) or \
+                 ( XMLentity in ["BlacklistWhiteHost"] and paramname=="Address" ) or \
                  ( XMLentity in ["IP4Group","IP6Group"] and paramname=="Members" ):
                 find = r"<(IP[46]Address|IP[46]HAAddress|IP[46]Group|FQDNAddress|FQDNGroup)"
             elif XMLentity == "ServiceGroup" and paramname=="Members":
@@ -540,7 +544,7 @@ def dumpnames(line, recurse=0):
             elif paramname=="RemoteID":
                 find = r"<IDList "
             elif paramname=="EthernetInterface":    # PPPoETunnel
-                find = r"<Ethernet "
+                find = r"<(Ethernet|VLAN) "
 
             # Find according to type ("find" regex)
             found=0
