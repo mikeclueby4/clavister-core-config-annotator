@@ -12,7 +12,7 @@ import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
-CURRENT_CORE_VERSION = "12.00.21"
+CURRENT_CORE_VERSION = "(12.00.21|13.00.00)"
 
 # sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
@@ -887,7 +887,7 @@ for line in lines:
         m = re.search(r' SchemaVersion="(([0-9]+)\.([0-9]+)\.([0-9]+))', line)
         if not m:
             notice("""Couldn't find a SchemaVersion="nn.nn.nn..." ?""", line)
-        elif m.group(1) != CURRENT_CORE_VERSION:
+        elif not re.match(CURRENT_CORE_VERSION, m.group(1)):
             notice("SchemaVersion was %s - latest is %s. (This may be due to InControl Global schema version and unavoidable because of older firewalls in the tree.)" % (m.group(1), CURRENT_CORE_VERSION), line)
 
         m = re.search(r' ConfigDate="([^"]+)', line)
