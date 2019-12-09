@@ -195,7 +195,7 @@ def dhdesc(group, line, ispfs=False):
     if (not ispfs) and igroup==1:
         notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is TRIVIALLY CRACKABLE. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
     elif (not ispfs) and (1<igroup<5 or igroup==22):
-        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14).", line)
+        notice("Diffie-Hellman group " + group + " (" + dhdescs[igroup] + ") is no longer considered safe. Use minimum 1536-bit MODP (group 5). For general use we recommend 2048-bit (group 14). Are Windows clients involved? See https://duckduckgo.com/?q=NegotiateDH2048_AES256 and http://wiki.clavister.com/x/ryC5Eg ", line)
     elif 23<=igroup<=24:
         notice("Diffie-Hellman group " + group + " is considered suspect - possibly engineered to be unsafe. For general use we recommend 2048-bit (group 14). See https://tools.ietf.org/html/rfc8247#section-2.4", line)
     elif 16<=igroup<=18:
