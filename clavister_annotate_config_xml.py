@@ -532,7 +532,7 @@ def dumpnames(line, recurse=0):
             elif paramname=="ConfigUser":  # <SecurityGateway
                 find = r"<User "
             elif paramname=="SSHKeys": # <User
-                find = r"<SSHClientKey "
+                find = r"<(SSHClientKey|SSHPublicKey) "    # Was SSHClientKey, now (13.0ish?) SSHPublicKey
             elif paramname=="IKEConfigModePool":  # <IPsecTunnel
                 find = r"<ConfigModePool "
             elif paramname in ["RootCertificates", "GatewayCertificate"]: # <IPsecTunnel
