@@ -968,6 +968,13 @@ for line in lines:
 
 
     #
+    # Other helpful info
+    #
+    if re.match(r'\s*<BlacklistWhiteHost ', line):
+        if not re.search(r' TargetNetwork=', line):
+            out(indent + "    <!-- TargetNetwork default is 'Source' -->")
+
+    #
     # Make note of major features
     #
 
