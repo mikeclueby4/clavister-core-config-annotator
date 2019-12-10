@@ -465,7 +465,7 @@ def dumpnames(line, recurse=0):
                 find = r"<HTTPAuthBanners "
             elif paramname in ["ForwardChain", "ReturnChain"]:
                 find = r"<Pipe "
-            elif paramname in ["HTTPSCertificate", "HostCertificate", "RootCertificate"]:
+            elif paramname in ["HTTPSCertificate", "HostCertificate", "HTTPSRootCertificates", "RootCertificate"]:
                 find = r"<Certificate "
             elif paramname == "RadiusServers":
                 find = r"<RadiusServer "
@@ -483,7 +483,7 @@ def dumpnames(line, recurse=0):
                 find = r"<DNSProfile "
             elif paramname == "MACAddress":
                 find = r"<EthernetAddress "
-            elif paramname in ["IPAddress", "Network", "Broadcast", "PrivateIP", "Gateway", "SourceNetwork",
+            elif paramname in ["IP", "IPv6IP", "IPAddress", "Network", "IPv6Network", "Broadcast", "PrivateIP", "Gateway", "SourceNetwork",
                                "DestinationNetwork", "OriginatorIP", "TerminatorIP", "ServerIP", "SourceIP",
                                "SLBAddresses",
                                "SATTranslateToIP", "NATSenderAddress",
@@ -500,6 +500,10 @@ def dumpnames(line, recurse=0):
                                "TargetDHCPServer", "TargetDHCPServer2",
                                "DHCPDNS1", "DHCPDNS2",  # dhcp-enabled interfaces
                                "DNSServer1", "DNSServer2", "DNSServer3",
+                               "IPOfferFilter", # DHCPRelay
+                               "IPPoolAddress", "DNS",  # ConfigModePool
+                               "DefaultGateway", "IPv6DefaultGateway",  # interfaces
+                               "LocalIP", # Route
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
                  ( XMLentity in ["OSPFProcess"] and paramname=="RouterID" ) or \
                  ( XMLentity in ["DynamicRoutingRule"] and paramname=="DestinationNetworkIn" ) or \
@@ -545,11 +549,14 @@ def dumpnames(line, recurse=0):
                 find = r"<IDList "
             elif paramname=="EthernetInterface":    # PPPoETunnel
                 find = r"<(Ethernet|VLAN) "
+            elif paramname=="LDAPServers":   # UserAuthRule
+                find = r"<LDAPDatabase "
+            elif paramname=="AccountingServers":  # UserAuthRule
+                find = r"<RadiusAccounting "
 
             # Find according to type ("find" regex)
             found=0
             for instance in Names[n]:
-
                 if re.match(find, instance):
                     dumpone(instance)
                     found=found+1
@@ -559,7 +566,7 @@ def dumpnames(line, recurse=0):
             elif found>2:
                 out("found too many (tell miol) ^^^") # crap
             else:
-                out("FUZZY MATCH ATTEMPT (tell miol):")  # miol needs to work
+                out("FUZZY MATCH ATTEMPT (tell miol) {}={}:".format(paramname,repr(n)))  # miol needs to work
                 for instance in Names[n]:
                     dumpone(instance)
 
