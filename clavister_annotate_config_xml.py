@@ -12,7 +12,7 @@ import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
-CURRENT_CORE_VERSION = "(12.00.21|13.00.00)"
+CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[01])"
 
 # sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
 #sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
@@ -591,7 +591,7 @@ def has_cryptography():
         return True
     global warned_about_cryptography
     if not warned_about_cryptography:
-        notice("The PyCA 'cryptography' module is not installed. If you do 'pip install cryptography' in an elevated command prompt, I can show you the cert contents!", None)
+        notice("The PyCA 'cryptography' module is not installed. If you do 'pip install cryptography' in an (possibly 'Run as Administrator') command prompt, I can show you the cert contents!", None)
         warned_about_cryptography=True
     return False
 
@@ -941,7 +941,9 @@ for line in lines:
     elif n and int(n)>30:
         notice("That's a very high MaxLoss - it'll take a very long time to trigger!", line)
 
-
+    # SNMPv3 traps with authentication
+    if re.match(r'\s*<EventReceiverSNMPv3.* Password="', line):
+        notice("WARNING - SNMPv3 traps cost 20+ ms per trap when authenticated!  (BUG!!)", line)
 
     # Services that people like to edit and will confuse us
     if re.match(r"^\s*<ServiceTCPUDP ", line):
