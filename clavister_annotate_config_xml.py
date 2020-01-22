@@ -14,13 +14,7 @@ from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
 CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[01])"
 
-# sys.argv.append("c:/temp/tic-28025/config-cOS-Core-FW2-20190823.bak")
-#sys.argv.append("c:/temp/tic-27950/anonymous_config-FW-03-iDirect-20190807-v8598.bak")
-# sys.argv.append("C:/Users/Mike/AppData/Local/Temp/config-fw1-20190624-v186.bak")
-
-# sys.argv.append(r"C:\Users\miol\AppData\Local\Temp\config-HFW00024-20190830.bak")
-# sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-hhfirewall03-20190930-1450.bak-annotated.xml")
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\config-DC-FRA-CoreFW1-20191115.bak-annotated.xml")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-T31Fw1-20200122-v041.bak")
 
 filename = sys.argv[1]
 
@@ -86,7 +80,7 @@ try:
     if re.search(r'\.bak', filename.lower()):
         with open(filename, "rb") as raw:
             rawdata = raw.read()
-            assert rawdata[0:4]!="FPKG", ".bak file started with '" + str(rawdata[0:4]) + "', expected 'FPKG'"
+            assert rawdata[0:4]!="FPKG", ".bak file started with '" + repr(rawdata[0:4]) + "', expected 'FPKG'"
             firstXmlLinePos = rawdata.find(b"<SecurityGateway")
             assert firstXmlLinePos>=0, "Could not find '<SecurityGateway' in file"
             lastXmlLinePos = rawdata.find(b"</SecurityGateway>")
@@ -146,6 +140,25 @@ def re_group(regex, string, groupnum, defaultvalue):
     if not m:
         return defaultvalue
     return m.group(groupnum)
+
+def getparam(name, string, defaultvalue=None):
+    return re_group(r' '+name+'="([^"]+)"', string, 1, defaultvalue)
+
+def getintparam(name, string, defaultvalue=None, base=10):
+    v = getparam(name,string,None)
+    if v is None and defaultvalue is not None:
+        return defaultvalue
+    try:
+        return int(v, base)
+    except (ValueError,TypeError) as e:
+        pass
+    assert False, f"""Could not parse {name}="{v}"" as a base-{base} integer
+>>> {string}
+"""
+
+
+
+
 
 def shorten(text: str) -> str:
     ''' Shorten lines HARD, truncate params, remove params .. keep the line under 100 chars'''
@@ -930,9 +943,25 @@ for line in lines:
         out(indent + "        <!-- PFSDHGroup " + dh + " = " + dhdesc(dh, line, ispfs=True) + " -->") # True = don't warn about None/low
 
     # sweet32 vuln ipsec lifetimes
-    n = re_group(r' IPsecLifeTimeKilobytes="([^"]+)"', line, 1, None)
-    if n and int(n)>1024*1024:
+    if getintparam("IPsecLifeTimeKilobytes", line, 0)>1024*1024:
         notice("IPsecLifeTimeKilobytes > 1M (1GB) opens the connection up to https://sweet32.info/ if non-AES ciphers are used!", line)
+
+    # generally low/high ipsec/ike lifetimes
+    for param in ["IPsecLifeTimeSeconds", "IKELifeTimeSeconds", "IPsecLifeTimeKilobytes", "IKELifeTimeKilobytes"]:
+        n = getintparam(param, line, 0)
+        if n!=0:
+            if n<300:
+                notice(f"{param}={n} is EXTREMELY low and likely to impact your tunnel throughput and maybe even your system performance", line)
+            elif n<3600:
+                notice(f"{param}={n} is unnecessarily low - there is no reason for it", line)
+            elif n<200000 and param=="IPsecLifeTimeKilobytes":
+                notice(f"{param}={n} is unnecessarily low - there is no reason for <200MB", line)
+
+            if "Seconds" in param and n>604800:
+                notice(f"{param}={n} is very high and possibly harmful to security levels", line)
+
+
+
 
     # Nutty monitoring
     n = re_group(r' MaxLoss="([0-9]+)"', line, 1, None)
