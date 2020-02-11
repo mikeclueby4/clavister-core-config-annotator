@@ -14,7 +14,7 @@ from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
 CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[01])"
 
-sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-T31Fw1-20200122-v041.bak")
+sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-Device-20200203-v063.bak")
 
 filename = sys.argv[1]
 
@@ -141,19 +141,19 @@ def re_group(regex, string, groupnum, defaultvalue):
         return defaultvalue
     return m.group(groupnum)
 
-def getparam(name, string, defaultvalue=None):
+def getparam(name, string, defaultvalue=None) -> str:
     return re_group(r' '+name+'="([^"]+)"', string, 1, defaultvalue)
 
-def getintparam(name, string, defaultvalue=None, base=10):
+def getintparam(name, string, defaultvalue=None, base=10) -> int:
     v = getparam(name,string,None)
-    if v is None and defaultvalue is not None:
+    if v is None:
         return defaultvalue
     try:
         return int(v, base)
     except (ValueError,TypeError) as e:
-        pass
-    assert False, f"""Could not parse {name}="{v}"" as a base-{base} integer
+        assert False, f"""Could not parse {name}="{v}"" as a base-{base} integer - ({e})
 >>> {string}
+>>>
 """
 
 
@@ -948,26 +948,28 @@ for line in lines:
 
     # generally low/high ipsec/ike lifetimes
     for param in ["IPsecLifeTimeSeconds", "IKELifeTimeSeconds", "IPsecLifeTimeKilobytes", "IKELifeTimeKilobytes"]:
-        n = getintparam(param, line, 0)
-        if n!=0:
-            if n<300:
-                notice(f"{param}={n} is EXTREMELY low and likely to impact your tunnel throughput and maybe even your system performance", line)
-            elif n<3600:
-                notice(f"{param}={n} is unnecessarily low - there is no reason for it", line)
-            elif n<200000 and param=="IPsecLifeTimeKilobytes":
-                notice(f"{param}={n} is unnecessarily low - there is no reason for <200MB", line)
+        i = getintparam(param, line, 0)
+        if i!=0:
+            if i<300:
+                notice(f"{param}={i} is EXTREMELY low and likely to impact your tunnel throughput and maybe even your system performance", line)
+            elif i<3600:
+                notice(f"{param}={i} is unnecessarily low - there is no reason for it", line)
+            elif i<200000 and param=="IPsecLifeTimeKilobytes":
+                notice(f"{param}={i} is unnecessarily low - there is no reason for <200MB", line)
 
-            if "Seconds" in param and n>604800:
-                notice(f"{param}={n} is very high and possibly harmful to security levels", line)
+            if "Seconds" in param and i>604800:
+                notice(f"{param}={i} is very high and possibly harmful to security levels", line)
 
 
 
 
     # Nutty monitoring
-    n = re_group(r' MaxLoss="([0-9]+)"', line, 1, None)
-    if n and int(n)<2:
+    i = getintparam("MaxLoss", line)
+    if not i:
+        pass
+    elif i<=2:
         notice("That's a very low MaxLoss - risks happening too often!", line)
-    elif n and int(n)>30:
+    elif i>30:
         notice("That's a very high MaxLoss - it'll take a very long time to trigger!", line)
 
     # SNMPv3 traps with authentication
