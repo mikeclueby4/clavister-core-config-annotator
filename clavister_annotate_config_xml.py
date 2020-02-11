@@ -12,7 +12,7 @@ import html
 from dataclasses import dataclass
 from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
 
-CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[01])"
+CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[1-2])"
 
 sys.argv.append(r"C:\Users\Mike\AppData\Local\Temp\anonymous_config-Device-20200203-v063.bak")
 
