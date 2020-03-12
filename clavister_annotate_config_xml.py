@@ -10,7 +10,7 @@ import binascii
 import textwrap
 import html
 from dataclasses import dataclass
-from typing import Callable,Dict,List,Union,Any,TextIO,BinaryIO,Optional,Tuple
+from typing import Callable, Dict, List, Union, Any, TextIO, BinaryIO, Optional, Tuple
 
 CURRENT_CORE_VERSION = "(12.00.2[12]|13.00.0[1-2])"
 
@@ -188,7 +188,7 @@ dhdescs = { 1: "768-bit MODP", 2: "1024-bit MODP", 5: "1536-bit MODP", 14: "2048
            19: "256-bit Random ECP",
            20: "384-bit Random ECP",
            21: "521-bit Random ECP",
-           }
+}
 
 def dhdesc(group, line, ispfs=False):
     ''' Return description of given group number. Will also notice() about problems, using the supplied line as context '''
