@@ -517,6 +517,7 @@ def dumpnames(line, recurse=0):
                                "IPPoolAddress", "DNS",  # ConfigModePool
                                "DefaultGateway", "IPv6DefaultGateway",  # interfaces
                                "LocalIP", # Route
+                               "IPRange", # NATPool
                                "TimeSyncServer1", "TimeSyncServer2", "TimeSyncServer3"] or \
                  ( XMLentity in ["OSPFProcess"] and paramname=="RouterID" ) or \
                  ( XMLentity in ["DynamicRoutingRule"] and paramname=="DestinationNetworkIn" ) or \
